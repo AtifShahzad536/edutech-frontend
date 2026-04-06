@@ -84,31 +84,45 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
     }
   }, [localStream]);
 
-  const initStream = useCallback(async () => {
-    console.log('[WebRTC] Initializing Stream for role:', role);
-    setIsInitializing(true);
+  const initStream = useCallback(async (isRetry = false) => {
+    console.log(`[WebRTC] ${isRetry ? 'Retrying' : 'Initializing'} Stream for role:`, role);
+    if (!isRetry) setIsInitializing(true);
     setError(null);
     try {
       if (role === 'Host') {
-        console.log('[WebRTC] Capturing local media...');
         const stream = await getMedia();
         console.log('[WebRTC] Media captured successfully:', stream.id);
         onStreamReady?.();
         emit('user-joined', { roomId: roomID, from: userID, userId: userID, userName, role });
       } else {
-        console.log('[WebRTC] Joining as audience...');
+        console.log('[WebRTC] Audience sending join signal...');
         emit('user-joined', { roomId: roomID, from: userID, userId: userID, userName, role });
       }
-      setIsInitializing(false);
+      if (!isRetry) setIsInitializing(false);
     } catch (err: any) {
       console.error('[WebRTC] Initialization error:', err);
-      setError({ 
-        title: 'Signal Error', 
-        message: err.message || 'Could not access camera or microphone. Please check permissions.' 
-      });
-      setIsInitializing(false);
+      if (!isRetry) {
+        setError({ 
+          title: 'Signal Error', 
+          message: err.message || 'Could not access camera or microphone.' 
+        });
+        setIsInitializing(false);
+      }
     }
   }, [role, roomID, userID, userName, getMedia, emit]);
+
+  // Auto-retry for audience if no remote stream arrives
+  useEffect(() => {
+    if (role === 'Audience' && remoteStreams.size === 0 && !isInitializing) {
+      const timer = setTimeout(() => {
+        if (remoteStreams.size === 0) {
+          console.log('[WebRTC] No stream received after 5s, retrying join signal...');
+          initStream(true);
+        }
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [role, remoteStreams.size, isInitializing, initStream]);
 
   useEffect(() => {
     if (role === 'Audience') {
@@ -137,24 +151,60 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
     }
 
     // Discovery on room channel (Everyone listens)
+    // Real-time Viewer Count and Discovery (Using Pusher's native presence events)
+    if (pusher) {
+       const roomChannel = pusher.channel(roomChannelName) || pusher.subscribe(roomChannelName);
+       
+       // Sync initial count when subscribing
+       roomChannel.bind('pusher:subscription_succeeded', (members: any) => {
+         console.log(`[Socket] Subscribed to room. Initial members: ${members.count}`);
+         setViewerCount(members.count);
+       });
+
+       roomChannel.bind('pusher:member_added', (member: any) => {
+         const studentId = member.id;
+         console.log(`[WebRTC] Member Joined: ${studentId}`);
+         setViewerCount(prev => prev + 1);
+
+         if (role === 'Host' && localStream) {
+            console.log(`[WebRTC] Host creating offer for: ${studentId}`);
+            const pc = createPeerConnection(studentId, emit, roomID, userID, localStream);
+            pc.createOffer().then(async (offer) => {
+               await pc.setLocalDescription(offer);
+               await processPendingCandidates(studentId);
+               emit('offer', { offer, from: userID, to: studentId, roomId: roomID });
+            });
+         }
+       });
+
+       roomChannel.bind('pusher:member_removed', (member: any) => {
+         const studentId = member.id;
+         console.log(`[WebRTC] Member Removed: ${studentId}`);
+         setViewerCount(prev => Math.max(0, prev - 1));
+
+         if (role === 'Host') {
+           const pc = peerConnections.get(studentId);
+           if (pc) {
+             pc.close();
+             peerConnections.delete(studentId);
+           }
+         }
+       });
+    }
+
+    // Keep custom user-joined as a fallback for re-syncs
     const hostOnUserJoined = on(roomChannelName, 'user-joined', async (data: any) => {
       const { userId, from, role: userRole } = data;
       const effectiveFrom = from || userId;
-      console.log(`[WebRTC] Host perceived user-joined: from=${effectiveFrom} role=${userRole}`);
       
       if (role === 'Host' && userRole === 'Audience') {
-        if (!localStream) {
-          console.warn('[WebRTC] User joined but local stream not ready yet.');
-          return;
-        }
-        console.log('[WebRTC] Host creating offer for:', effectiveFrom);
+        console.log(`[WebRTC] Fallback user-joined received: ${effectiveFrom}`);
+        if (!localStream) return;
         const pc = createPeerConnection(effectiveFrom, emit, roomID, userID, localStream);
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        // Process any candidates that might have arrived early
         await processPendingCandidates(effectiveFrom);
         emit('offer', { offer, from: userID, to: effectiveFrom, roomId: roomID });
-        setViewerCount(prev => prev + 1);
       }
     });
 
@@ -208,12 +258,15 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
       }
     });
 
-    const onUserLeft = on(roomChannelName, 'user-left', ({ userId }: { userId: string }) => {
-      const pc = peerConnections.get(userId);
-      if (pc) {
-        pc.close();
-        peerConnections.delete(userId);
-        setViewerCount(prev => Math.max(0, prev - 1));
+    // Final room cleanup for audience
+    const onUserLeftFallback = on(roomChannelName, 'user-left', ({ userId }: { userId: string }) => {
+      if (role === 'Host') { // Audience doesn't need to track user-left
+        const pc = peerConnections.get(userId);
+        if (pc) {
+          pc.close();
+          peerConnections.delete(userId);
+          setViewerCount(prev => Math.max(0, prev - 1));
+        }
       }
     });
 
@@ -222,7 +275,7 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
       if (audienceOnOffer) audienceOnOffer();
       if (hostOnAnswer) hostOnAnswer();
       if (onIceCandidate) onIceCandidate();
-      if (onUserLeft) onUserLeft();
+      if (onUserLeftFallback) onUserLeftFallback();
     };
   }, [pusher, localStream, role, createPeerConnection, emit, on, roomID, userID]); // removed peerConnections map from deps to prevent re-runs on handshake
 
@@ -278,6 +331,7 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
                     key={idx}
                     autoPlay 
                     playsInline 
+                    muted={isAudioMuted}
                     ref={(el) => { if(el) el.srcObject = stream }}
                     className="flex-1 w-full h-full object-cover"
                     style={{ 
@@ -289,13 +343,38 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
                   />
                 ))
             ) : (
-               <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
+                <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
                   <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center animate-pulse">
                      <FiActivity className="text-gray-700 h-6 w-6" />
                   </div>
-                  <p className="text-gray-600 text-[10px] font-black uppercase tracking-[0.4em]">Waiting for Host</p>
+                  <div className="space-y-1">
+                    <p className="text-gray-600 text-[10px] font-black uppercase tracking-[0.4em]">Waiting for Host</p>
+                    <button 
+                      onClick={() => initStream(true)}
+                      className="text-indigo-500 text-[8px] font-black uppercase tracking-widest hover:underline flex items-center gap-2 mx-auto"
+                    >
+                      <FiRefreshCw className="h-2.5 w-2.5" />
+                      Retry Connection
+                    </button>
+                  </div>
                </div>
             )}
+
+            {/* Global User Count HUD */}
+            <div className="absolute top-6 left-6 z-20 flex items-center gap-3">
+              <div className="bg-black/40 backdrop-blur-xl px-3 py-1.5 rounded-xl border border-white/10 flex items-center gap-2 shadow-2xl">
+                 <FiUsers className="h-3 w-3 text-indigo-400" />
+                 <span className="text-[10px] font-black text-white tabular-nums tracking-widest uppercase">{viewerCount} Live</span>
+              </div>
+              {role === 'Audience' && (
+                <button 
+                  onClick={() => setIsAudioMuted(!isAudioMuted)}
+                  className={`w-8 h-8 rounded-xl border flex items-center justify-center transition-all ${isAudioMuted ? 'bg-red-500/20 text-red-500 border-red-500/20' : 'bg-black/40 text-white border-white/10'}`}
+                >
+                  {isAudioMuted ? <FiMicOff className="h-4 w-4" /> : <FiMic className="h-4 w-4" />}
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -321,7 +400,7 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
                    </div>
                    
                    <button 
-                     onClick={initStream}
+                     onClick={() => initStream(false)}
                      className="w-full py-2 md:py-3.5 bg-white hover:bg-gray-100 text-black rounded-xl font-black text-[9px] md:text-[11px] uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95"
                    >
                       Get Started
