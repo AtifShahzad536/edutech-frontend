@@ -120,17 +120,27 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
     const roomChannelName = `presence-room-${roomID}`;
     const userChannelName = `private-user-${userID}`;
     
+    console.log(`[Socket] Comp mounting. Subscribing to: ${roomChannelName} and ${userChannelName}`);
+    
     // Subscribe to both the shared room and private signaling channels
     if (pusher) {
-       pusher.subscribe(roomChannelName);
-       pusher.subscribe(userChannelName);
+       console.log('[Socket] Pusher state:', pusher.connection.state);
+       
+       const roomChannel = pusher.subscribe(roomChannelName);
+       const userChannel = pusher.subscribe(userChannelName);
+
+       roomChannel.bind('pusher:subscription_succeeded', () => console.log(`[Socket] Successfully subscribed to room: ${roomChannelName}`));
+       userChannel.bind('pusher:subscription_succeeded', () => console.log(`[Socket] Successfully subscribed to user channel: ${userChannelName}`));
+       
+       roomChannel.bind('pusher:subscription_error', (err: any) => console.error(`[Socket] Error subscribing to room:`, err));
+       userChannel.bind('pusher:subscription_error', (err: any) => console.error(`[Socket] Error subscribing to user channel:`, err));
     }
 
     // Discovery on room channel (Everyone listens)
     const hostOnUserJoined = on(roomChannelName, 'user-joined', async (data: any) => {
       const { userId, from, role: userRole } = data;
       const effectiveFrom = from || userId;
-      console.log('[WebRTC] User joined:', effectiveFrom, userRole);
+      console.log(`[WebRTC] Host perceived user-joined: from=${effectiveFrom} role=${userRole}`);
       
       if (role === 'Host' && userRole === 'Audience') {
         if (!localStream) {

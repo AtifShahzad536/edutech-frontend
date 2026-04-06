@@ -6,27 +6,39 @@ import API_URL from '@/config/api';
 const PUSHER_KEY = process.env.NEXT_PUBLIC_PUSHER_KEY || '';
 const PUSHER_CLUSTER = process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'mt1';
 
+let pusherInstance: Pusher | null = null;
+let connectionCount = 0;
+
 export const useSocket = () => {
-  const [pusher, setPusher] = useState<Pusher | null>(null);
+  const [pusher, setPusher] = useState<Pusher | null>(pusherInstance);
 
   useEffect(() => {
     if (!PUSHER_KEY) return;
 
-    const pusherClient = new Pusher(PUSHER_KEY, {
-      cluster: PUSHER_CLUSTER,
-      authEndpoint: `${API_URL}/pusher/auth`,
-      forceTLS: true,
-      auth: {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
+    if (!pusherInstance) {
+      pusherInstance = new Pusher(PUSHER_KEY, {
+        cluster: PUSHER_CLUSTER,
+        authEndpoint: `${API_URL}/pusher/auth`, // Keep 'pusher/auth' as it was
+        forceTLS: true,
+        auth: {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
         }
-      }
-    });
+      });
+      console.log('[Pusher] Singleton initialized');
+    }
 
-    setPusher(pusherClient);
+    connectionCount++;
+    setPusher(pusherInstance);
 
     return () => {
-      pusherClient.disconnect();
+      connectionCount--;
+      if (connectionCount === 0 && pusherInstance) {
+        // Option 1: Keep it alive for the whole session
+        // pusherInstance.disconnect();
+        // pusherInstance = null;
+      }
     };
   }, []);
 
