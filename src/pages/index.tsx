@@ -108,7 +108,7 @@ const staticStats = [
   { value: '4.9', label: 'Average Rating' },
 ];
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+import API_URL from '@/config/api';
 
 /* ─── Sub-components ────────────────────────────────────────── */
 

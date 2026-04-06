@@ -14,6 +14,7 @@ import { addNotification } from '@/store/slices/uiSlice';
 import { selectLiveClasses } from '@/store/index';
 import { Lesson, AuthenticatedPage } from '@/types';
 import axios from 'axios';
+import API_URL from '@/config/api';
 
 interface ExtendedLesson extends Omit<Lesson, 'courseId' | 'description' | 'type' | 'content' | 'duration' | 'createdAt' | 'updatedAt' | 'order' | 'isPreview'> {
   courseId?: string;
@@ -144,7 +145,7 @@ const CourseLearningPage: AuthenticatedPage = () => {
   const fetchDiscussions = useCallback(async () => {
     if (!courseId || !token) return;
     try {
-      const response = await axios.get(`http://localhost:5000/api/discussions/${courseId}`, {
+      const response = await axios.get(`${API_URL}/discussions/${courseId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.data.success) {
@@ -165,7 +166,7 @@ const CourseLearningPage: AuthenticatedPage = () => {
     if (!newQuestionTitle.trim() || !newQuestionContent.trim() || !token) return;
     setIsSubmittingContext(true);
     try {
-      await axios.post('http://localhost:5000/api/discussions', {
+      await axios.post(`${API_URL}/discussions`, {
         courseId,
         title: newQuestionTitle,
         content: newQuestionContent

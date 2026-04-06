@@ -1,12 +1,13 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { LiveClass, LiveClassState } from '@/types';
+import API_URL from '@/config/api';
 
 export const fetchLiveClasses = createAsyncThunk(
   'live/fetchLiveClasses',
   async (_, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/live`, {
+      const response = await fetch(`${API_URL}/live`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const result = await response.json();
@@ -37,7 +38,7 @@ export const startLiveClass = createAsyncThunk(
   async (data: { courseId: string; title: string, description?: string }, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/live/start`, {
+      const response = await fetch(`${API_URL}/live/start`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -59,7 +60,7 @@ export const endLiveClass = createAsyncThunk(
   async (data: { id: string; recordingUrl?: string }, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/live/${data.id}/end`, {
+      const response = await fetch(`${API_URL}/live/${data.id}/end`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -82,7 +83,7 @@ export const updateLiveClassStatus = createAsyncThunk(
     try {
       const token = localStorage.getItem('token');
       console.log(`[LiveSync] Updating session ${data.id} to status: ${data.status}`);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/live/${data.id}/status`, {
+      const response = await fetch(`${API_URL}/live/${data.id}/status`, {
         method: 'PATCH',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -109,7 +110,7 @@ export const scheduleLiveClass = createAsyncThunk(
   async (data: { courseId: string; title: string; module: string; scheduledFor: string }, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/live/schedule`, {
+      const response = await fetch(`${API_URL}/live/schedule`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,

@@ -10,6 +10,7 @@ import Button from '@/components/ui/Button';
 import { ChartArea } from '@/components/ui/Charts';
 import { AuthenticatedPage } from '@/types';
 import { useAppSelector } from '@/hooks/useRedux';
+import API_URL from '@/config/api';
 
 const AdminDashboard: AuthenticatedPage = () => {
   const router = useRouter();
@@ -30,7 +31,7 @@ const AdminDashboard: AuthenticatedPage = () => {
     const fetchAdminStats = async () => {
       try {
         const t = localStorage.getItem('token');
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/stats`, {
+        const response = await fetch(`${API_URL}/admin/stats`, {
           headers: { Authorization: `Bearer ${t}` }
         });
         const result = await response.json();

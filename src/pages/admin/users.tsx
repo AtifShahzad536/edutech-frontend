@@ -6,6 +6,7 @@ import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import { AuthenticatedPage } from '@/types';
+import API_URL from '@/config/api';
 
 interface AdminUser {
   id: string;
@@ -50,7 +51,7 @@ const AdminUsersPage: AuthenticatedPage = () => {
     const fetchUsers = async () => {
       try {
         const t = localStorage.getItem('token');
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/users`, {
+        const response = await fetch(`${API_URL}/admin/users`, {
           headers: { Authorization: `Bearer ${t}` }
         });
         const result = await response.json();

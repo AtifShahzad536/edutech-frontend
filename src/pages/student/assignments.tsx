@@ -6,6 +6,7 @@ import { useAppSelector } from '@/hooks/useRedux';
 import { selectAssignments } from '@/store';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { AuthenticatedPage } from '@/types';
+import API from '@/config/api';
 
 interface Assignment {
   id: string;
@@ -23,7 +24,7 @@ interface Assignment {
   attachments?: string[];
 }
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
 
 const StudentAssignmentsPage: AuthenticatedPage = () => {
   const router = useRouter();

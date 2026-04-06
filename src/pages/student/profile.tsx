@@ -5,6 +5,7 @@ import { useAppSelector, useAppDispatch } from '@/hooks/useRedux';
 import { updateUserProfile, setUser } from '@/store/slices/authSlice';
 import toast from 'react-hot-toast';
 import { AuthenticatedPage } from '@/types';
+import API_URL from '@/config/api';
 
 const StudentProfilePage: AuthenticatedPage = () => {
   const { user } = useAppSelector((state) => state.auth);
@@ -60,7 +61,7 @@ const StudentProfilePage: AuthenticatedPage = () => {
       const formDataUpload = new FormData();
       formDataUpload.append('document', uploadedDocument);
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/users/profile/import-linkedin`, {
+      const response = await fetch(`${API_URL}/users/profile/import-linkedin`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formDataUpload
@@ -135,7 +136,7 @@ const StudentProfilePage: AuthenticatedPage = () => {
                   formData.append('image', file);
                   const token = localStorage.getItem('token');
                   try {
-                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/uploads/profile-image`, {
+                    const response = await fetch(`${API_URL}/uploads/profile-image`, {
                       method: 'POST',
                       headers: { Authorization: `Bearer ${token}` },
                       body: formData

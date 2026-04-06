@@ -12,6 +12,7 @@ import { useAuthSync } from '@/hooks/useAuthSync';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { AuthenticatedPage } from '@/types';
 import axios from 'axios';
+import API_URL from '@/config/api';
 
 const RecommendedCoursesPage: AuthenticatedPage = () => {
   const router = useRouter();
@@ -35,7 +36,7 @@ const RecommendedCoursesPage: AuthenticatedPage = () => {
     const fetchRecommendations = async () => {
       if (!token) return;
       try {
-        const response = await axios.get('http://localhost:5000/api/recommendations', {
+        const response = await axios.get(`${API_URL}/recommendations`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (response.data.success) {
@@ -80,7 +81,7 @@ const RecommendedCoursesPage: AuthenticatedPage = () => {
     setIsChatLoading(true);
     
     try {
-      const response = await axios.post('http://localhost:5000/api/recommendations/ai-chat', {
+      const response = await axios.post(`${API_URL}/recommendations/ai-chat`, {
         message: userMsg.content
       }, {
         headers: { Authorization: `Bearer ${token}` }

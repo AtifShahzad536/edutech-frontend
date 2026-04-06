@@ -11,8 +11,9 @@ import { useAuthSync } from '@/hooks/useAuthSync';
 import { ChartArea, ChartRadar, ChartComposed, ChartLine } from '@/components/ui/Charts';
 import Link from 'next/link';
 import { AuthenticatedPage } from '@/types';
+import API from '@/config/api';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
 
 // ─── Skeleton loader ──────────────────────────────────────────────────────────
 const Skeleton = ({ className = '' }: { className?: string }) => (

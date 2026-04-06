@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppSelector } from '@/hooks/useRedux';
 import { FiBell, FiX, FiCheck, FiAlertCircle, FiInfo, FiAward, FiMessageSquare, FiCalendar, FiBookOpen, FiUser, FiZap, FiTrash2 } from 'react-icons/fi';
+import API_URL from '@/config/api';
 
 interface Notification {
   id: string;
@@ -26,7 +27,7 @@ const NotificationCenter: React.FC = () => {
     const fetchNotifications = async () => {
       if (!isInitialized || !token) return;
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/notifications`, {
+        const response = await fetch(`${API_URL}/notifications`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const result = await response.json();
@@ -64,7 +65,7 @@ const NotificationCenter: React.FC = () => {
   const markAsRead = async (id: string) => {
     try {
       const token = localStorage.getItem('token');
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/notifications/${id}/read`, {
+      await fetch(`${API_URL}/notifications/${id}/read`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}` }
       });

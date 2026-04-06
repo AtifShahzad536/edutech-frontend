@@ -15,6 +15,7 @@ import { selectAssignments } from '@/store';
 import { addAssignment } from '@/store/slices/assignmentSlice';
 import { AuthenticatedPage } from '@/types';
 import clsx from 'clsx';
+import API_URL from '@/config/api';
 
 const InstructorAssignmentsPage: AuthenticatedPage = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -69,7 +70,7 @@ const InstructorAssignmentsPage: AuthenticatedPage = () => {
         }
         
         // 1. Fetch instructor's courses to populate create select
-        const coursesRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/instructor/courses`, {
+        const coursesRes = await fetch(`${API_URL}/instructor/courses`, {
           headers: { Authorization: `Bearer ${t}` }
         });
         
@@ -90,7 +91,7 @@ const InstructorAssignmentsPage: AuthenticatedPage = () => {
         }
 
         // 2. Fetch all assignments for instructor
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/assignments/instructor`, {
+        const res = await fetch(`${API_URL}/assignments/instructor`, {
           headers: { Authorization: `Bearer ${t}` }
         });
         const result = await res.json();
@@ -123,7 +124,7 @@ const InstructorAssignmentsPage: AuthenticatedPage = () => {
 
     try {
       const t = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/uploads/assignment-file`, {
+      const response = await fetch(`${API_URL}/uploads/assignment-file`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${t}`
@@ -157,7 +158,7 @@ const InstructorAssignmentsPage: AuthenticatedPage = () => {
     e.preventDefault();
     try {
       const t = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/assignments`, {
+      const response = await fetch(`${API_URL}/assignments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -246,7 +247,7 @@ const InstructorAssignmentsPage: AuthenticatedPage = () => {
     e.preventDefault();
     try {
       const t = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/assignments/${editingAssignment.id}`, {
+      const response = await fetch(`${API_URL}/assignments/${editingAssignment.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -298,7 +299,7 @@ const InstructorAssignmentsPage: AuthenticatedPage = () => {
     }
     try {
       const t = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/assignments/${id}`, {
+      const response = await fetch(`${API_URL}/assignments/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${t}` }
       });
@@ -319,7 +320,7 @@ const InstructorAssignmentsPage: AuthenticatedPage = () => {
     setLoadingSubmissions(true);
     try {
       const t = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/assignments/${assignment.id}/submissions`, {
+      const response = await fetch(`${API_URL}/assignments/${assignment.id}/submissions`, {
         headers: { Authorization: `Bearer ${t}` }
       });
       const result = await response.json();
@@ -337,7 +338,7 @@ const InstructorAssignmentsPage: AuthenticatedPage = () => {
     e.preventDefault();
     try {
       const t = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/assignments/submissions/${gradingData.submissionId}/grade`, {
+      const response = await fetch(`${API_URL}/assignments/submissions/${gradingData.submissionId}/grade`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -757,7 +758,7 @@ const InstructorAssignmentsPage: AuthenticatedPage = () => {
                               formData.append('file', file);
                               try {
                                 const t = localStorage.getItem('token');
-                                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/uploads/assignment-file`, {
+                                const response = await fetch(`${API_URL}/uploads/assignment-file`, {
                                   method: 'POST',
                                   headers: { Authorization: `Bearer ${t}` },
                                   body: formData

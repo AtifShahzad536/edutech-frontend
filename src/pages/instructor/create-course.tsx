@@ -8,6 +8,7 @@ import { AuthenticatedPage } from '@/types';
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
 import { addCourse, updateCourse, fetchCourseById } from '@/store/slices/courseSlice';
 import { useEffect } from 'react';
+import API_URL from '@/config/api';
 
 interface CourseFormData {
   title: string;
@@ -126,7 +127,7 @@ const CreateCoursePage: AuthenticatedPage = () => {
       const formData = new FormData();
       formData.append('file', e.target.files[0]);
       const t = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/uploads/assignment-file`, {
+      const response = await fetch(`${API_URL}/uploads/assignment-file`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${t}` },
         body: formData
@@ -152,7 +153,7 @@ const CreateCoursePage: AuthenticatedPage = () => {
       const formData = new FormData();
       formData.append('file', file);
       const t = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/uploads/assignment-file`, {
+      const response = await fetch(`${API_URL}/uploads/assignment-file`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${t}` },
         body: formData
@@ -198,8 +199,8 @@ const CreateCoursePage: AuthenticatedPage = () => {
         };
 
         const url = isEditing 
-          ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/courses/${id}`
-          : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/courses`;
+          ? `${API_URL}/courses/${id}`
+          : `${API_URL}/courses`;
         
         const method = isEditing ? 'PUT' : 'POST';
 

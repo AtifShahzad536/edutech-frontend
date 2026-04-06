@@ -10,8 +10,7 @@ import PublicLayout from '@/components/layout/PublicLayout';
 import CourseCard from '@/components/ui/CourseCard';
 import { useAppSelector, useAppDispatch } from '@/hooks/useRedux';
 import { addToCart } from '@/store/slices/courseSlice';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+import API from '@/config/api';
 
 // ─── Skeleton card ────────────────────────────────────────────────────────────
 const CourseCardSkeleton = () => (

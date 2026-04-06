@@ -6,6 +6,7 @@ import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import Select from '@/components/ui/Select';
 import { AuthenticatedPage } from '@/types';
+import API_URL from '@/config/api';
 
 const StudentDiscussionsPage: AuthenticatedPage = () => {
   const router = useRouter();
@@ -22,7 +23,7 @@ const StudentDiscussionsPage: AuthenticatedPage = () => {
       try {
         const token = localStorage.getItem('token');
         // For now, we fetch all discussions. In the future, this could be filtered by courseId.
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/discussions/all`, {
+        const response = await fetch(`${API_URL}/discussions/all`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const result = await response.json();

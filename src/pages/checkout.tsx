@@ -15,8 +15,7 @@ import { clearCart } from '@/store/slices/courseSlice';
 import { refreshUser } from '@/store/slices/authSlice';
 import { AuthenticatedPage } from '@/types';
 import axios from 'axios';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+import API_URL from '@/config/api';
 
 const CheckoutPage: AuthenticatedPage = () => {
   const router = useRouter();

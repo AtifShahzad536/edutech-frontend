@@ -19,6 +19,7 @@ import { useAppSelector, useAppDispatch } from '@/hooks/useRedux';
 import { enrollCourse } from '@/store/slices/courseSlice';
 import { addNotification } from '@/store/slices/uiSlice';
 import { AuthenticatedPage } from '@/types';
+import API_URL from '@/config/api';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -27,8 +28,6 @@ const formatCurrency = (amount: number) => {
     minimumFractionDigits: 2,
   }).format(amount);
 };
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 const CheckoutPage: AuthenticatedPage = () => {
   const router = useRouter();

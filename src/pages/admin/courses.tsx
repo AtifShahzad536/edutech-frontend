@@ -7,6 +7,7 @@ import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
 import { AuthenticatedPage } from '@/types';
+import API_URL from '@/config/api';
 
 interface AdminCourse {
   id: string;
@@ -49,7 +50,7 @@ const AdminCoursesPage: AuthenticatedPage = () => {
     const fetchCourses = async () => {
       try {
         const t = localStorage.getItem('token');
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/courses`, {
+        const response = await fetch(`${API_URL}/courses`, {
           headers: { Authorization: `Bearer ${t}` }
         });
         const result = await response.json();

@@ -14,8 +14,7 @@ import { fetchCourseById, updateCourse } from '@/store/slices/courseSlice';
 import { useEffect } from 'react';
 import axios from 'axios';
 import { AuthenticatedPage } from '@/types';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+import API_URL from '@/config/api';
 
 // Types
 interface Lesson {

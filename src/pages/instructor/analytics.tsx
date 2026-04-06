@@ -10,6 +10,7 @@ import { useRouter } from 'next/router';
 import { useAppSelector } from '@/hooks/useRedux';
 import Pagination from '@/components/ui/Pagination';
 import { AuthenticatedPage } from '@/types';
+import API_URL from '@/config/api';
 
 const InstructorAnalyticsPage: AuthenticatedPage = () => {
   const router = useRouter();
@@ -38,12 +39,12 @@ const InstructorAnalyticsPage: AuthenticatedPage = () => {
         const headers = { Authorization: `Bearer ${t}` };
 
         // Fetch Stats
-        const statsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/instructor/stats`, { headers });
+        const statsRes = await fetch(`${API_URL}/instructor/stats`, { headers });
         const statsData = await statsRes.json();
         if (statsData.success) setStats(statsData.stats);
 
         // Fetch Courses
-        const coursesRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/instructor/courses`, { headers });
+        const coursesRes = await fetch(`${API_URL}/instructor/courses`, { headers });
         const coursesData = await coursesRes.json();
         if (coursesData.success) {
           setCourses(coursesData.data.map((c: any) => ({
@@ -58,7 +59,7 @@ const InstructorAnalyticsPage: AuthenticatedPage = () => {
         }
 
         // Fetch Students
-        const studentsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/instructor/students`, { headers });
+        const studentsRes = await fetch(`${API_URL}/instructor/students`, { headers });
         const studentsData = await studentsRes.json();
         if (studentsData.success) setStudents(studentsData.data);
 

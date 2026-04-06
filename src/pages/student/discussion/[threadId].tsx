@@ -7,6 +7,7 @@ import { useAppSelector } from '@/hooks/useRedux';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
 import { AuthenticatedPage } from '@/types';
+import API_URL from '@/config/api';
 
 const DiscussionThreadPage: AuthenticatedPage = () => {
   const router = useRouter();
@@ -26,7 +27,7 @@ const DiscussionThreadPage: AuthenticatedPage = () => {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/discussions/thread/${threadId}`, {
+      const response = await fetch(`${API_URL}/discussions/thread/${threadId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const result = await response.json();
@@ -52,7 +53,7 @@ const DiscussionThreadPage: AuthenticatedPage = () => {
     const loadingToast = toast.loading('Posting reply...', { position: 'top-center' });
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/discussions/thread/${threadId}/reply`, {
+      const response = await fetch(`${API_URL}/discussions/thread/${threadId}/reply`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -78,7 +79,7 @@ const DiscussionThreadPage: AuthenticatedPage = () => {
     if (!threadId || !user) return;
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/discussions/thread/${threadId}/like`, {
+      const response = await fetch(`${API_URL}/discussions/thread/${threadId}/like`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -97,7 +98,7 @@ const DiscussionThreadPage: AuthenticatedPage = () => {
     if (!threadId || !user || !replyId) return;
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/discussions/thread/${threadId}/reply/${replyId}/like`, {
+      const response = await fetch(`${API_URL}/discussions/thread/${threadId}/reply/${replyId}/like`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` }
       });
