@@ -29,8 +29,10 @@ const ChatSection: React.FC<ChatSectionProps> = ({ roomId, userId, userName, isH
     
     setConnected(true);
     const channelName = `presence-room-${roomId}`;
+    // Subscribe once
+    pusher.subscribe(channelName);
 
-    // Subscribe and listen for chat messages
+    // listen for chat messages
     const unbind = on(channelName, 'chat-message', (msg: any) => {
       // Check if message is from self (to avoid duplicates if triggered optimistically)
       setMessages((prev: Message[]) => {
@@ -47,7 +49,7 @@ const ChatSection: React.FC<ChatSectionProps> = ({ roomId, userId, userName, isH
 
     return () => {
       if (unbind) unbind();
-      pusher.unsubscribe(channelName);
+      // We don't unsubscribe here to keep the channel alive across minor re-renders
     };
   }, [pusher, roomId, on]);
 

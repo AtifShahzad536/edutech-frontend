@@ -115,6 +115,11 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
 
   useEffect(() => {
     const channelName = `presence-room-${roomID}`;
+    
+    // Subscribe once
+    if (pusher) {
+       pusher.subscribe(channelName);
+    }
 
     const hostOnUserJoined = on(channelName, 'user-joined', async (data: any) => {
       const { userId, from, role: userRole } = data;
@@ -135,11 +140,19 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
       }
     });
 
-    const audienceOnOffer = on(channelName, 'offer', async ({ offer, from, to }: { offer: RTCSessionDescriptionInit, from: string, to: string }) => {
+    const audienceOnOffer = on(channelName, 'offer', async (data: any) => {
+      const { offer, to } = data;
+      const from = data.from || data.userId || data.senderId;
+      
       // For Audience: only respond to offers meant for us
-      console.log('[WebRTC] Signal check. from:', from, 'to:', to, 'self:', userID);
+      console.log('[WebRTC] Signal check. data:', data, 'self:', userID);
+      
       if (role === 'Audience' && to === userID) {
         console.log('[WebRTC] Offer received from:', from);
+        if (!from) {
+          console.error('[WebRTC] Cannot answer: sender ID (from) is missing!');
+          return;
+        }
         const pc = createPeerConnection(from, emit, roomID, userID);
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await pc.createAnswer();
@@ -148,9 +161,13 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
       }
     });
 
-    const hostOnAnswer = on(channelName, 'answer', async ({ answer, from, to }: { answer: RTCSessionDescriptionInit, from: string, to: string }) => {
+    const hostOnAnswer = on(channelName, 'answer', async (data: any) => {
+      const { answer, to } = data;
+      const from = data.from || data.userId || data.senderId;
+
       if (role === 'Host' && to === userID) {
         console.log('Answer received from:', from);
+        if (!from) return;
         const pc = peerConnections.get(from);
         if (pc) {
           await pc.setRemoteDescription(new RTCSessionDescription(answer));
@@ -158,8 +175,12 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
       }
     });
 
-    const onIceCandidate = on(channelName, 'ice-candidate', async ({ candidate, from, to }: { candidate: RTCIceCandidateInit, from: string, to: string }) => {
+    const onIceCandidate = on(channelName, 'ice-candidate', async (data: any) => {
+      const { candidate, to } = data;
+      const from = data.from || data.userId || data.senderId;
+
       if (to === userID) {
+        if (!from) return;
         const pc = peerConnections.get(from);
         if (pc) {
           await pc.addIceCandidate(new RTCIceCandidate(candidate));
@@ -182,9 +203,10 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
       if (hostOnAnswer) hostOnAnswer();
       if (onIceCandidate) onIceCandidate();
       if (onUserLeft) onUserLeft();
-      pusher?.unsubscribe(channelName);
+      // We don't unsubscribe from the channel here to prevent blinking.
+      // Pusher cleans up once the component is fully destroyed or the connection closes.
     };
-  }, [pusher, localStream, role, createPeerConnection, emit, on, peerConnections, roomID, userID]);
+  }, [pusher, localStream, role, createPeerConnection, emit, on, roomID, userID]); // removed peerConnections map from deps to prevent re-runs on handshake
 
   useEffect(() => {
     return () => {

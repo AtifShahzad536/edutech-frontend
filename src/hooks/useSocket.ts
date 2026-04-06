@@ -53,10 +53,17 @@ export const useSocket = () => {
 
   const on = useCallback((channelName: string, event: string, callback: (data: any) => void) => {
     if (!pusher) return;
-    const channel = pusher.subscribe(channelName);
+    
+    // Pusher handles multiple subscribe calls by returning the same object,
+    // but we should be careful about unbinding and unsubscribing.
+    const channel = pusher.channel(channelName) || pusher.subscribe(channelName);
+    
     channel.bind(event, callback);
+    
     return () => {
       channel.unbind(event, callback);
+      // We don't unsubscribe here because other listeners might still need it.
+      // Pusher will handle cleaning up unused channels or we can do it on component unmount.
     };
   }, [pusher]);
 
