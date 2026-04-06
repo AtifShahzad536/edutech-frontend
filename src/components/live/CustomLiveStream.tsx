@@ -25,7 +25,10 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
   roomID, userID, userName, role, onToggleAudio, onToggleVideo, onStreamReady 
 }, ref) => {
   const { emit, on, pusher } = useSocket();
-  const { localStream, remoteStreams, getMedia, createPeerConnection, closeAllConnections, peerConnections } = useWebRTC();
+  const { 
+    localStream, remoteStreams, getMedia, createPeerConnection, 
+    addIceCandidate, processPendingCandidates, closeAllConnections, peerConnections 
+  } = useWebRTC();
   const [error, setError] = useState<{ title: string; message: string } | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
@@ -135,6 +138,8 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
         const pc = createPeerConnection(effectiveFrom, emit, roomID, userID, localStream);
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
+        // Process any candidates that might have arrived early
+        await processPendingCandidates(effectiveFrom);
         emit('offer', { offer, from: userID, to: effectiveFrom, roomId: roomID });
         setViewerCount(prev => prev + 1);
       }
@@ -145,18 +150,23 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
       const from = data.from || data.userId || data.senderId;
       
       // For Audience: only respond to offers meant for us
-      console.log('[WebRTC] Signal check. data:', data, 'self:', userID);
-      
       if (role === 'Audience' && to === userID) {
         console.log('[WebRTC] Offer received from:', from);
-        if (!from) {
-          console.error('[WebRTC] Cannot answer: sender ID (from) is missing!');
+        if (!from) return;
+
+        const pc = createPeerConnection(from, emit, roomID, userID);
+        
+        // If we are already connected/connecting, don't restart unless the offer is new
+        if (pc.remoteDescription && pc.connectionState === 'connected') {
+          console.log('[WebRTC] Already connected to host, ignoring redundant offer.');
           return;
         }
-        const pc = createPeerConnection(from, emit, roomID, userID);
+
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
+        // Process early candidates
+        await processPendingCandidates(from);
         emit('answer', { answer, from: userID, to: from, roomId: roomID });
       }
     });
@@ -166,11 +176,13 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
       const from = data.from || data.userId || data.senderId;
 
       if (role === 'Host' && to === userID) {
-        console.log('Answer received from:', from);
+        console.log('[WebRTC] Answer received from:', from);
         if (!from) return;
         const pc = peerConnections.get(from);
         if (pc) {
+          if (pc.connectionState === 'connected') return;
           await pc.setRemoteDescription(new RTCSessionDescription(answer));
+          await processPendingCandidates(from);
         }
       }
     });
@@ -181,10 +193,7 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
 
       if (to === userID) {
         if (!from) return;
-        const pc = peerConnections.get(from);
-        if (pc) {
-          await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        }
+        await addIceCandidate(from, candidate);
       }
     });
 
