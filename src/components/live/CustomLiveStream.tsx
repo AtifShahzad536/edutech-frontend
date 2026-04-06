@@ -91,10 +91,10 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
         const stream = await getMedia();
         console.log('[WebRTC] Media captured successfully:', stream.id);
         onStreamReady?.();
-        emit('user-joined', { roomId: roomID, userId: userID, userName, role });
+        emit('user-joined', { roomId: roomID, from: userID, userId: userID, userName, role });
       } else {
         console.log('[WebRTC] Joining as audience...');
-        emit('user-joined', { roomId: roomID, userId: userID, userName, role });
+        emit('user-joined', { roomId: roomID, from: userID, userId: userID, userName, role });
       }
       setIsInitializing(false);
     } catch (err: any) {
@@ -116,18 +116,21 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
   useEffect(() => {
     const channelName = `presence-room-${roomID}`;
 
-    const hostOnUserJoined = on(channelName, 'user-joined', async ({ userId, role: userRole }: { userId: string, role: string }) => {
-      console.log('[WebRTC] User joined:', userId, userRole);
+    const hostOnUserJoined = on(channelName, 'user-joined', async (data: any) => {
+      const { userId, from, role: userRole } = data;
+      const effectiveFrom = from || userId;
+      console.log('[WebRTC] User joined:', effectiveFrom, userRole);
+      
       if (role === 'Host' && userRole === 'Audience') {
         if (!localStream) {
           console.warn('[WebRTC] User joined but local stream not ready yet.');
           return;
         }
-        console.log('[WebRTC] Host creating offer for:', userId);
-        const pc = createPeerConnection(userId, emit, roomID, userID, localStream);
+        console.log('[WebRTC] Host creating offer for:', effectiveFrom);
+        const pc = createPeerConnection(effectiveFrom, emit, roomID, userID, localStream);
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        emit('offer', { offer, from: userID, to: userId, roomId: roomID });
+        emit('offer', { offer, from: userID, to: effectiveFrom, roomId: roomID });
         setViewerCount(prev => prev + 1);
       }
     });
