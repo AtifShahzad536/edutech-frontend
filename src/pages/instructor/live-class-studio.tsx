@@ -187,6 +187,9 @@ const InstructorStudioPage: AuthenticatedPage = () => {
                       {isMuted ? <FiMicOff className="h-5 w-5" /> : <FiMic className="h-5 w-5" />}
                    </button>
                    <div className="w-px h-6 bg-white/10 mx-1" />
+                   <button onClick={toggleChatVisibility} className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${isChatVisible ? 'bg-white/5 text-white' : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/20'}`}>
+                      <FiMessageSquare className="h-5 w-5" />
+                   </button>
                    <button onClick={toggleStudioFullscreen} className="w-11 h-11 rounded-xl bg-white hover:bg-gray-100 flex items-center justify-center text-black transition-all">
                       {isFullscreenMode ? <FiMinimize className="h-5 w-5" /> : <FiMaximize className="h-5 w-5" />}
                    </button>
