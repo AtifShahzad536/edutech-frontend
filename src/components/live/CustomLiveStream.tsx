@@ -91,10 +91,10 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
         const stream = await getMedia();
         console.log('[WebRTC] Media captured successfully:', stream.id);
         onStreamReady?.();
-        emit('join-stream', { roomId: roomID, userId: userID, userName, role });
+        emit('user-joined', { roomId: roomID, userId: userID, userName, role });
       } else {
         console.log('[WebRTC] Joining as audience...');
-        emit('join-stream', { roomId: roomID, userId: userID, userName, role });
+        emit('user-joined', { roomId: roomID, userId: userID, userName, role });
       }
       setIsInitializing(false);
     } catch (err: any) {
