@@ -14,7 +14,8 @@ export const useSocket = () => {
 
     const pusherClient = new Pusher(PUSHER_KEY, {
       cluster: PUSHER_CLUSTER,
-      authEndpoint: `${API_URL.replace('/api', '')}/api/pusher/auth`,
+      authEndpoint: `${API_URL}/pusher/auth`,
+      forceTLS: true,
       auth: {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
