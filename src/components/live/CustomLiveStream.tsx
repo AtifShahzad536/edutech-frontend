@@ -304,7 +304,12 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
         {role === 'Host' ? (
           <div className="relative w-full h-full">
             <video 
-              ref={localVideoRef} 
+              ref={(el) => {
+                if(el && el.srcObject !== localStream) {
+                   console.log('[WebRTC] Attaching local stream to video element');
+                   el.srcObject = localStream;
+                }
+              }}
               autoPlay 
               muted 
               playsInline 
@@ -327,7 +332,12 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
                     autoPlay 
                     playsInline 
                     muted={isAudioMuted}
-                    ref={(el) => { if(el) el.srcObject = stream }}
+                    ref={(el) => { 
+                       if(el && el.srcObject !== stream) {
+                         console.log('[WebRTC] Attaching remote stream to video element');
+                         el.srcObject = stream;
+                       }
+                     }}
                     className="flex-1 w-full h-full object-cover"
                     style={{ 
                       willChange: 'transform',

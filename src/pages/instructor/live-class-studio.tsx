@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { 
   FiVideo, FiUsers, FiSettings, FiActivity, FiZap, FiRadio, 
@@ -23,10 +23,12 @@ const InstructorStudioPage: AuthenticatedPage = () => {
   const { user, token, isInitialized } = useAppSelector((state) => state.auth);
   const { roomID } = router.query;
   const streamRef = useRef<CustomLiveStreamHandle>(null);
+  const mainContainerRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isFullscreenMode, setIsFullscreenMode] = useState(false);
+  const [isChatVisible, setIsChatVisible] = useState(true);
   const [isLive, setIsLive] = useState(false);
   const [isSynced, setIsSynced] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -57,12 +59,7 @@ const InstructorStudioPage: AuthenticatedPage = () => {
     }
   }, [isLive, roomID, isSynced, isSyncing, dispatch]);
 
-  const handleStreamReady = async () => {
-    if (isLive) return;
-    setIsLive(true);
-    setElapsedSeconds(0);
-    timerRef.current = setInterval(() => setElapsedSeconds(s => s + 1), 1000);
-  };
+
 
   useEffect(() => {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
@@ -70,18 +67,37 @@ const InstructorStudioPage: AuthenticatedPage = () => {
   
   useEffect(() => {
     setMounted(true);
-    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    const handleFsChange = () => setIsFullscreenMode(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handleFsChange);
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
   }, []);
 
-  const handleToggleVideo = () => {
-    streamRef.current?.toggleVideo();
-  };
+  const toggleStudioFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else if (mainContainerRef.current?.requestFullscreen) {
+      mainContainerRef.current.requestFullscreen();
+    }
+  }, []);
 
-  const handleToggleAudio = () => {
+  const toggleChatVisibility = useCallback(() => {
+    setIsChatVisible(prev => !prev);
+  }, []);
+
+  const handleToggleVideo = useCallback(() => {
+    streamRef.current?.toggleVideo();
+  }, []);
+
+  const handleToggleAudio = useCallback(() => {
     streamRef.current?.toggleAudio();
-  };
+  }, []);
+
+  const handleStreamReady = useCallback(async () => {
+    if (isLive) return;
+    setIsLive(true);
+    setElapsedSeconds(0);
+    timerRef.current = setInterval(() => setElapsedSeconds(s => s + 1), 1000);
+  }, [isLive]);
 
   useAuthSync();
 
@@ -103,10 +119,10 @@ const InstructorStudioPage: AuthenticatedPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="flex flex-col xl:h-[calc(100vh-120px)] xl:overflow-hidden overflow-y-auto animate-in fade-in duration-700 pb-8 xl:pb-0">
+      <div ref={mainContainerRef} className={`flex flex-col xl:h-[calc(100vh-120px)] xl:overflow-hidden overflow-y-auto pb-8 xl:pb-0 animate-in fade-in duration-700 bg-[#070708] ${isFullscreenMode ? 'fixed inset-0 z-[9999] h-screen w-screen p-4' : ''}`}>
         
         {/* Production Studio Header */}
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-4 mb-8 pt-4">
+        <header className={`flex flex-col md:flex-row md:items-center justify-between gap-6 px-4 mb-8 pt-4 ${isFullscreenMode ? 'hidden' : ''}`}>
           <div className="space-y-1">
             <div className="flex items-center gap-3">
                <h1 className="text-3xl font-black uppercase tracking-tight text-white">Live <span className="text-red-500">Studio</span></h1>
@@ -142,7 +158,7 @@ const InstructorStudioPage: AuthenticatedPage = () => {
         </header>
 
         {/* Workspace */}
-        <div className="flex flex-col xl:flex-row gap-6 flex-1 min-h-0 px-4">
+        <div className={`flex gap-6 flex-1 min-h-0 px-4 ${isFullscreenMode ? 'flex-row' : 'flex-col xl:flex-row'}`}>
           <div className="flex-1 flex flex-col gap-6 min-w-0">
             <div className="aspect-video xl:flex-1 bg-black rounded-[2rem] overflow-hidden border border-white/5 shadow-2xl relative group/stream">
                 {mounted && router.isReady && user && (
@@ -155,11 +171,15 @@ const InstructorStudioPage: AuthenticatedPage = () => {
                     onToggleAudio={setIsMuted}
                     onToggleVideo={setIsVideoOff}
                     onStreamReady={handleStreamReady}
+                    onToggleFullScreen={toggleStudioFullscreen}
+                    onToggleChat={toggleChatVisibility}
+                    isChatVisible={isChatVisible}
+                    isFullscreenMode={isFullscreenMode}
                   />
                 )}
                 
                 {/* Floating Controls */}
-                <div className={`absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 z-30 px-4 py-3 bg-black/50 backdrop-blur-2xl rounded-2xl border border-white/10 transition-all duration-300 shadow-2xl ${isFullscreen ? 'opacity-100' : 'opacity-0 group-hover/stream:opacity-100 translate-y-2 group-hover/stream:translate-y-0'}`}>
+                <div className={`absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 z-30 px-4 py-3 bg-black/50 backdrop-blur-2xl rounded-2xl border border-white/10 transition-all duration-300 shadow-2xl ${isFullscreenMode ? 'opacity-100' : 'opacity-0 group-hover/stream:opacity-100 translate-y-2 group-hover/stream:translate-y-0'}`}>
                    <button onClick={handleToggleVideo} className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${isVideoOff ? 'bg-red-500/20 text-red-500 border border-red-500/20' : 'bg-white/5 hover:bg-white/10 text-white'}`}>
                       {isVideoOff ? <FiVideoOff className="h-5 w-5" /> : <FiVideo className="h-5 w-5" />}
                    </button>
@@ -167,8 +187,8 @@ const InstructorStudioPage: AuthenticatedPage = () => {
                       {isMuted ? <FiMicOff className="h-5 w-5" /> : <FiMic className="h-5 w-5" />}
                    </button>
                    <div className="w-px h-6 bg-white/10 mx-1" />
-                   <button onClick={() => streamRef.current?.toggleFullScreen()} className="w-11 h-11 rounded-xl bg-white hover:bg-gray-100 flex items-center justify-center text-black transition-all">
-                      {isFullscreen ? <FiMinimize className="h-5 w-5" /> : <FiMaximize className="h-5 w-5" />}
+                   <button onClick={toggleStudioFullscreen} className="w-11 h-11 rounded-xl bg-white hover:bg-gray-100 flex items-center justify-center text-black transition-all">
+                      {isFullscreenMode ? <FiMinimize className="h-5 w-5" /> : <FiMaximize className="h-5 w-5" />}
                    </button>
                 </div>
             </div>
@@ -192,7 +212,7 @@ const InstructorStudioPage: AuthenticatedPage = () => {
             </div>
           </div>
 
-          <aside className="w-full xl:w-[400px] flex flex-col gap-6 min-h-[500px] xl:min-h-0">
+          <aside className={`${isChatVisible ? (isFullscreenMode ? 'w-[320px] h-full translate-x-0' : 'xl:w-[400px] min-h-[500px]') : 'w-0 overflow-hidden translate-x-full'} flex flex-col gap-6 xl:min-h-0 transition-all duration-500 ease-in-out`}>
              <div className="flex-1 bg-gray-950 border border-white/5 rounded-[2rem] overflow-hidden flex flex-col shadow-2xl">
                 <ChatSection 
                   roomId={String(roomID || "101")}

@@ -63,6 +63,10 @@ const LiveClassPage: AuthenticatedPage = () => {
     }
   }, []);
 
+  const toggleChatVisibility = useCallback(() => {
+    setIsChatVisible(prev => !prev);
+  }, []);
+
   if (!roomID || !user) return null;
 
   return (
@@ -119,7 +123,7 @@ const LiveClassPage: AuthenticatedPage = () => {
                   userName={`${user.firstName} ${user.lastName}`}
                   role="Audience"
                   onToggleFullScreen={toggleMainFullscreen}
-                  onToggleChat={() => setIsChatVisible(!isChatVisible)}
+                  onToggleChat={toggleChatVisibility}
                   isChatVisible={isChatVisible}
                   isFullscreenMode={isFullscreenMode}
                 />
