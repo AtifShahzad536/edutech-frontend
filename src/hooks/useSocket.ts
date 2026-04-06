@@ -1,31 +1,63 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { io, Socket } from 'socket.io-client';
+import Pusher from 'pusher-js';
+import axios from 'axios';
+import API_URL from '@/config/api';
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000';
+const PUSHER_KEY = process.env.NEXT_PUBLIC_PUSHER_KEY || '';
+const PUSHER_CLUSTER = process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'mt1';
 
 export const useSocket = () => {
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const [pusher, setPusher] = useState<Pusher | null>(null);
 
   useEffect(() => {
-    const newSocket = io(SOCKET_URL);
-    setSocket(newSocket);
+    if (!PUSHER_KEY) return;
+
+    const pusherClient = new Pusher(PUSHER_KEY, {
+      cluster: PUSHER_CLUSTER,
+      authEndpoint: `${API_URL.replace('/api', '')}/api/pusher/auth`,
+      auth: {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      }
+    });
+
+    setPusher(pusherClient);
 
     return () => {
-      newSocket.disconnect();
+      pusherClient.disconnect();
     };
   }, []);
 
-  const emit = useCallback((event: string, data: any) => {
-    socket?.emit(event, data);
-  }, [socket]);
+  const emit = useCallback(async (event: string, data: any) => {
+    // In Pusher, clients cannot emit directly to channels 
+    // unless they are client-events on private channels.
+    // We route this through our backend trigger endpoint.
+    try {
+      // Use roomId if provided, else fallback to a default or global channel
+      const roomId = data.roomId || data.roomID || (data.to ? null : 'global');
+      const channel = roomId ? `presence-room-${roomId}` : (data.to ? `private-user-${data.to}` : 'global');
+      
+      await axios.post(`${API_URL}/live/pusher/trigger`, {
+        event,
+        data,
+        channel
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+    } catch (error) {
+      console.error('Pusher trigger failed:', error);
+    }
+  }, []);
 
-  const on = useCallback((event: string, callback: (data: any) => void) => {
-    socket?.on(event, callback);
-  }, [socket]);
+  const on = useCallback((channelName: string, event: string, callback: (data: any) => void) => {
+    if (!pusher) return;
+    const channel = pusher.subscribe(channelName);
+    channel.bind(event, callback);
+    return () => {
+      channel.unbind(event, callback);
+    };
+  }, [pusher]);
 
-  const off = useCallback((event: string) => {
-    socket?.off(event);
-  }, [socket]);
-
-  return useMemo(() => ({ socket, emit, on, off }), [socket, emit, on, off]);
+  return useMemo(() => ({ pusher, emit, on, subscribe: (name: string) => pusher?.subscribe(name) }), [pusher, emit, on]);
 };

@@ -32,6 +32,7 @@ export const useWebRTC = () => {
   const createPeerConnection = useCallback((
     targetId: string, 
     socketEmit: (event: string, data: any) => void,
+    roomId: string,
     stream?: MediaStream
   ) => {
     const pc = new RTCPeerConnection(iceServers);
@@ -43,7 +44,7 @@ export const useWebRTC = () => {
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        socketEmit('ice-candidate', { candidate: event.candidate, to: targetId });
+        socketEmit('ice-candidate', { candidate: event.candidate, to: targetId, roomId });
       }
     };
 

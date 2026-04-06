@@ -24,7 +24,7 @@ export interface CustomLiveStreamHandle {
 const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProps>(({ 
   roomID, userID, userName, role, onToggleAudio, onToggleVideo, onStreamReady 
 }, ref) => {
-  const { emit, on, off, socket } = useSocket();
+  const { emit, on, pusher } = useSocket();
   const { localStream, remoteStreams, getMedia, createPeerConnection, closeAllConnections, peerConnections } = useWebRTC();
   const [error, setError] = useState<{ title: string; message: string } | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
@@ -114,11 +114,9 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
   }, [role, initStream]);
 
   useEffect(() => {
-    if (!socket) return;
+    const channelName = `presence-room-${roomID}`;
 
-    console.log('[WebRTC] Registering socket listeners. Local Stream Available:', !!localStream);
-
-    on('user-joined', async ({ userId, role: userRole }: { userId: string, role: string }) => {
+    const hostOnUserJoined = on(channelName, 'user-joined', async ({ userId, role: userRole }: { userId: string, role: string }) => {
       console.log('[WebRTC] User joined:', userId, userRole);
       if (role === 'Host' && userRole === 'Audience') {
         if (!localStream) {
@@ -126,41 +124,47 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
           return;
         }
         console.log('[WebRTC] Host creating offer for:', userId);
-        const pc = createPeerConnection(userId, emit, localStream);
+        const pc = createPeerConnection(userId, emit, roomID, localStream);
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        emit('offer', { offer, to: userId });
+        emit('offer', { offer, to: userId, roomId: roomID });
         setViewerCount(prev => prev + 1);
       }
     });
 
-    on('offer', async ({ offer, from }: { offer: RTCSessionDescriptionInit, from: string }) => {
-      console.log('[WebRTC] Offer received from:', from);
-      if (role === 'Audience') {
-        const pc = createPeerConnection(from, emit);
+    const audienceOnOffer = on(channelName, 'offer', async ({ offer, from, to }: { offer: RTCSessionDescriptionInit, from: string, to: string }) => {
+      // For Audience: only respond to offers meant for us
+      console.log('[WebRTC] Signal check. from:', from, 'to:', to, 'self:', userID);
+      if (role === 'Audience' && to === userID) {
+        console.log('[WebRTC] Offer received from:', from);
+        const pc = createPeerConnection(from, emit, roomID);
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        emit('answer', { answer, to: from });
+        emit('answer', { answer, to: from, roomId: roomID });
       }
     });
 
-    on('answer', async ({ answer, from }: { answer: RTCSessionDescriptionInit, from: string }) => {
-      console.log('Answer received from:', from);
-      const pc = peerConnections.get(from);
-      if (pc) {
-        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+    const hostOnAnswer = on(channelName, 'answer', async ({ answer, from, to }: { answer: RTCSessionDescriptionInit, from: string, to: string }) => {
+      if (role === 'Host' && to === userID) {
+        console.log('Answer received from:', from);
+        const pc = peerConnections.get(from);
+        if (pc) {
+          await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        }
       }
     });
 
-    on('ice-candidate', async ({ candidate, from }: { candidate: RTCIceCandidateInit, from: string }) => {
-      const pc = peerConnections.get(from);
-      if (pc) {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+    const onIceCandidate = on(channelName, 'ice-candidate', async ({ candidate, from, to }: { candidate: RTCIceCandidateInit, from: string, to: string }) => {
+      if (to === userID) {
+        const pc = peerConnections.get(from);
+        if (pc) {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        }
       }
     });
 
-    on('user-left', ({ userId }: { userId: string }) => {
+    const onUserLeft = on(channelName, 'user-left', ({ userId }: { userId: string }) => {
       const pc = peerConnections.get(userId);
       if (pc) {
         pc.close();
@@ -170,13 +174,14 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
     });
 
     return () => {
-      off('user-joined');
-      off('offer');
-      off('answer');
-      off('ice-candidate');
-      off('user-left');
+      if (hostOnUserJoined) hostOnUserJoined();
+      if (audienceOnOffer) audienceOnOffer();
+      if (hostOnAnswer) hostOnAnswer();
+      if (onIceCandidate) onIceCandidate();
+      if (onUserLeft) onUserLeft();
+      pusher?.unsubscribe(channelName);
     };
-  }, [socket, localStream, role, createPeerConnection, emit, on, off, peerConnections]);
+  }, [pusher, localStream, role, createPeerConnection, emit, on, peerConnections, roomID, userID]);
 
   useEffect(() => {
     return () => {

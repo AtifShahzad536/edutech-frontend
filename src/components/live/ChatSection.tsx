@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FiMessageSquare, FiSend } from 'react-icons/fi';
-import { io, Socket } from 'socket.io-client';
+import { useSocket } from '@/hooks/useSocket';
 
 interface Message {
   id: string;
@@ -17,63 +17,67 @@ export interface ChatSectionProps {
   isHost?: boolean;
 }
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000';
-
 const ChatSection: React.FC<ChatSectionProps> = ({ roomId, userId, userName, isHost }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
+  const { pusher, emit, on } = useSocket();
   const [connected, setConnected] = useState(false);
-  const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const socket = io(SOCKET_URL, { transports: ['websocket', 'polling'] });
-    socketRef.current = socket;
+    if (!pusher) return;
+    
+    setConnected(true);
+    const channelName = `presence-room-${roomId}`;
 
-    socket.on('connect', () => {
-      setConnected(true);
-      socket.emit('join-stream', { roomId, userId, userName, role: isHost ? 'Host' : 'Audience' });
+    // Subscribe and listen for chat messages
+    const unbind = on(channelName, 'chat-message', (msg: any) => {
+      // Check if message is from self (to avoid duplicates if triggered optimistically)
+      setMessages((prev: Message[]) => {
+        if (prev.some(m => m.id === msg.id?.toString())) return prev;
+        return [...prev, {
+          id: msg.id?.toString() || Date.now().toString(),
+          name: msg.name,
+          text: msg.text,
+          time: msg.time,
+          isHost: msg.isHost,
+        }];
+      });
     });
-
-    socket.on('chat-message', (msg: any) => {
-      setMessages((prev) => [...prev, {
-        id: msg.id.toString(),
-        name: msg.name,
-        text: msg.text,
-        time: msg.time,
-        isHost: msg.isHost,
-      }]);
-    });
-
-    socket.on('disconnect', () => setConnected(false));
 
     return () => {
-      socket.disconnect();
+      if (unbind) unbind();
+      pusher.unsubscribe(channelName);
     };
-  }, [roomId, userId, userName, isHost]);
+  }, [pusher, roomId, on]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const handleSendMessage = () => {
-    if (!inputText.trim() || !socketRef.current) return;
+    if (!inputText.trim() || !pusher) return;
 
-    const newMsg = {
-      id: Date.now().toString(),
+    const msgId = Date.now().toString();
+    const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    
+    const newMsg: Message = {
+      id: msgId,
       name: userName,
       text: inputText.trim(),
-      time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+      time,
       isHost: !!isHost,
     };
 
     // Optimistically update UI instantly
     setMessages((prev) => [...prev, newMsg]);
 
-    socketRef.current.emit('chat-message', {
+    emit('chat-message', {
       roomId,
-      senderName: userName,
+      id: msgId,
+      name: userName,
       text: inputText.trim(),
+      time,
       isHost: !!isHost,
     });
 

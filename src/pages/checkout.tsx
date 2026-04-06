@@ -38,6 +38,7 @@ const CheckoutPage: AuthenticatedPage = () => {
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [purchasedAmount, setPurchasedAmount] = useState<number>(0);
+  const [verifying, setVerifying] = useState(false);
 
   // Handle Stripe Redirection Success
   const hasProcessed = useRef(false);
@@ -45,47 +46,54 @@ const CheckoutPage: AuthenticatedPage = () => {
   React.useEffect(() => {
     if (!router.isReady || hasProcessed.current) return;
 
-    if (router.query.success === 'true') {
-      hasProcessed.current = true;
-      // Read the amount saved to localStorage BEFORE Stripe redirect (fallback)
-      const savedAmount = parseFloat(localStorage.getItem('pendingCartTotal') || '0');
-      
-      const sessionId = router.query.session_id as string;
-      if (sessionId) {
+    const sessionId = router.query.session_id as string;
+    const success = router.query.success === 'true';
+
+    if (success && sessionId && !verifying) {
+      const verifyPayment = async () => {
+        setVerifying(true);
         const token = localStorage.getItem('token');
-        if (token) {
-          axios.get(`${API_URL}/payments/session/${sessionId}`, {
+        
+        try {
+          // 1. Verify with backend first (Fallback enrollment)
+          const verifyRes = await axios.get(`${API_URL}/payments/verify/${sessionId}`, {
             headers: { Authorization: `Bearer ${token}` }
-          }).then(res => {
-            if (res.data.success && res.data.data.amountTotal !== undefined) {
-              setPurchasedAmount(res.data.data.amountTotal);
-            } else {
-              setPurchasedAmount(savedAmount);
-            }
-          }).catch(err => {
-            console.error('Failed to fetch session details', err);
-            setPurchasedAmount(savedAmount);
           });
-        } else {
-          setPurchasedAmount(savedAmount);
+
+          if (verifyRes.data.success) {
+            // 2. Refresh user to sync enrolled courses
+            await dispatch(refreshUser() as any);
+            
+            // 3. Clear cart
+            dispatch(clearCart());
+            
+            // 4. Set UI states
+            setPurchasedAmount(verifyRes.data.data.amountTotal || parseFloat(localStorage.getItem('pendingCartTotal') || '0'));
+            setPaymentSuccess(true);
+            setActiveStep('confirmation');
+            hasProcessed.current = true;
+          }
+        } catch (err) {
+          console.error('Verification failed:', err);
+          // Still try to show generic success if we have a saved amount, 
+          // but at least we tried the sync.
+          setPaymentSuccess(true);
+          setActiveStep('confirmation');
+        } finally {
+          setVerifying(false);
+          localStorage.removeItem('pendingCartTotal');
         }
-      } else {
-        setPurchasedAmount(savedAmount);
-      }
+      };
 
-      localStorage.removeItem('pendingCartTotal');
-
-      setActiveStep('confirmation');
-      setPaymentSuccess(true);
-      dispatch(clearCart());
-      dispatch(refreshUser() as any); // Refresh user to get new enrolled courses
+      verifyPayment();
     }
+
     if (router.query.canceled === 'true') {
       hasProcessed.current = true;
       setPaymentError('Payment was canceled. You can try again.');
       setActiveStep('review');
     }
-  }, [router.isReady, router.query, dispatch]);
+  }, [router.isReady, router.query, dispatch, verifying]);
 
   // Saved payment methods (Mocked for UI selection, but Stripe Checkout will handle)
   const savedMethods = [
@@ -404,8 +412,18 @@ const CheckoutPage: AuthenticatedPage = () => {
             </div>
           )}
 
-          {/* STEP 3: CONFIRMATION */}
-          {activeStep === 'confirmation' && (
+          {/* STEP 3: CONFIRMATION OR VERIFYING */}
+          {verifying && (
+            <div className="max-w-2xl mx-auto py-20 text-center space-y-8">
+              <div className="w-20 h-20 bg-indigo-600/10 border border-indigo-500/20 rounded-3xl flex items-center justify-center mx-auto animate-pulse">
+                <FiLock className="h-8 w-8 text-indigo-400" />
+              </div>
+              <h2 className="text-2xl font-black text-white uppercase tracking-widest">Verifying Purchase...</h2>
+              <p className="text-gray-500 text-sm max-w-xs mx-auto font-medium">Please wait while we confirm your enrollment and set up your dashboard.</p>
+            </div>
+          )}
+
+          {activeStep === 'confirmation' && !verifying && (
             <div className="max-w-2xl mx-auto py-10 text-center animate-in fade-in slide-in-from-bottom-8 duration-700">
               <div className="w-24 h-24 bg-indigo-600/10 border border-indigo-500/20 rounded-3xl flex items-center justify-center mx-auto mb-10 shadow-2xl shadow-indigo-600/10">
                 <FiCheckCircle className="h-10 w-10 text-indigo-400" />

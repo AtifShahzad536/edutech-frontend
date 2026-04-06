@@ -7,12 +7,15 @@ import {
 } from 'react-icons/fi';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import CourseCard from '@/components/ui/CourseCard';
+import axios from 'axios';
+import API_URL from '@/config/api';
 import { useAppSelector } from '@/hooks/useRedux';
+import { RootState } from '@/store';
 import { AuthenticatedPage } from '@/types';
 
 const MyCoursesPage: AuthenticatedPage = () => {
   const router = useRouter();
-  const { user, token } = useAppSelector((state) => state.auth);
+  const { user, token } = useAppSelector((state: RootState) => state.auth);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [courses, setCourses] = useState<any[]>([]);
@@ -20,51 +23,36 @@ const MyCoursesPage: AuthenticatedPage = () => {
   // ── Sync with local storage or API ──────────────────────────────────────────
   useEffect(() => {
     const loadMyCourses = async () => {
+      if (!token) return;
       setLoading(true);
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // In a real app, this would be a fetch to /api/student/my-courses
-      // Using mockup for demonstration based on the user's enrolledCourses
-      const mockEnrolled = [
-        {
-          id: '1',
-          title: 'Advanced React Architecture & Design Patterns',
-          description: 'Master the scale of modern web applications with advanced concepts.',
-          cluster: 'Development',
-          progress: 65,
-          status: 'ongoing',
-          lastSync: '2 hours ago',
-          instructor: { firstName: 'Sarah', lastName: 'Johnson' }
-        },
-        {
-          id: '2',
-          title: 'Deep Learning with Python & TensorFlow',
-          description: 'A comprehensive guide to neural networks and artificial intelligence.',
-          cluster: 'Data Science',
-          progress: 100,
-          status: 'completed',
-          lastSync: 'Yesterday',
-          instructor: { firstName: 'David', lastName: 'Chen' }
-        },
-        {
-          id: '3',
-          title: 'Digital Marketing Mastery: Social Media',
-          description: 'Grow your brand with advanced social media marketing strategies.',
-          cluster: 'Marketing',
-          progress: 12,
-          status: 'ongoing',
-          lastSync: '3 days ago',
-          instructor: { firstName: 'Emma', lastName: 'Wilson' }
+      try {
+        const response = await axios.get(`${API_URL}/dashboard/stats`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        if (response.data.success) {
+          // Format data for CourseCard
+          const enrolled = (response.data.enrolledCourses || []).map((c: any) => ({
+            id: c.id || c._id,
+            title: c.title,
+            description: c.description || '',
+            thumbnail: c.thumbnail,
+            category: c.category || 'Development',
+            progress: c.progress || 0,
+            status: c.progress === 100 ? 'completed' : 'ongoing',
+            instructor: c.instructor || { firstName: 'Edu', lastName: 'Tech' }
+          }));
+          setCourses(enrolled);
         }
-      ];
-
-      setCourses(mockEnrolled);
-      setLoading(false);
+      } catch (error) {
+        console.error('Failed to load enrolled courses:', error);
+      } finally {
+        setLoading(false);
+      }
     };
 
     loadMyCourses();
-  }, []);
+  }, [token]);
 
   const filteredCourses = courses.filter(course =>
     course.title.toLowerCase().includes(searchTerm.toLowerCase())

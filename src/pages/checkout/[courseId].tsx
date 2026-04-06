@@ -17,6 +17,7 @@ import clsx from 'clsx';
 import axios from 'axios';
 import { useAppSelector, useAppDispatch } from '@/hooks/useRedux';
 import { enrollCourse } from '@/store/slices/courseSlice';
+import { refreshUser } from '@/store/slices/authSlice';
 import { addNotification } from '@/store/slices/uiSlice';
 import { AuthenticatedPage } from '@/types';
 import API_URL from '@/config/api';
@@ -43,8 +44,11 @@ const CheckoutPage: AuthenticatedPage = () => {
     [courses, courseId]
   );
   
+  const [courseFromApi, setCourseFromApi] = useState<any>(null);
+  const [loadingCourse, setLoadingCourse] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [formData, setFormData] = useState({
     billingAddress: {
       firstName: user?.firstName || 'John',
@@ -58,33 +62,70 @@ const CheckoutPage: AuthenticatedPage = () => {
     },
   });
 
+  // 1. Fetch course if not in store
+  React.useEffect(() => {
+    if (courseId && !actualCourse) {
+      const fetchCourse = async () => {
+        setLoadingCourse(true);
+        try {
+          const res = await axios.get(`${API_URL}/courses/${courseId}`);
+          if (res.data.success) {
+            setCourseFromApi(res.data.data);
+          }
+        } catch (err) {
+          console.error('Error fetching course for checkout:', err);
+        } finally {
+          setLoadingCourse(false);
+        }
+      };
+      fetchCourse();
+    }
+  }, [courseId, actualCourse]);
+
+  // 2. Handle Payment Success (Verification Fallback)
+  React.useEffect(() => {
+    const { success, session_id } = router.query;
+    if (success === 'true' && session_id && !verifying) {
+      const verifyPayment = async () => {
+        setVerifying(true);
+        try {
+          const res = await axios.get(`${API_URL}/payments/verify/${session_id}`, {
+            headers: { Authorization: `Bearer ${token || localStorage.getItem('token')}` }
+          });
+          if (res.data.success) {
+            await dispatch(refreshUser() as any);
+            router.push(`/student/learning/${courseId}?new_enroll=true`);
+          }
+        } catch (err) {
+          console.error('Verification failed:', err);
+          setVerifying(false); // Let them try manually or see error
+        }
+      };
+      verifyPayment();
+    }
+  }, [router.query, courseId, token]);
+
   // Mock course data for UI if actual course not found
   const courseData = useMemo(() => {
     if (actualCourse) return actualCourse;
+    if (courseFromApi) return courseFromApi;
     return {
       id: courseId,
-      title: 'Complete Web Development Bootcamp',
-      instructor: { firstName: 'John', lastName: 'Doe' },
-      price: 89.99,
-      originalPrice: 199.99,
-      rating: 4.8,
-      reviewsCount: 1234,
-      studentsCount: 15420,
-      duration: 42,
-      category: 'development',
-      level: 'beginner',
-      description: 'Learn web development from scratch with HTML, CSS, JavaScript, React, Node.js and more.',
-      thumbnail: '/images/course1.jpg',
-      features: [
-        '42 hours of video content',
-        'Downloadable resources',
-        'Certificate of completion',
-        'Lifetime access',
-        'Mobile and TV access',
-        'Assignments with feedback',
-      ],
+      title: 'Loading Course...',
+      instructor: { firstName: '...', lastName: '...' },
+      price: 0,
+      originalPrice: 0,
+      rating: 0,
+      reviewsCount: 0,
+      studentsCount: 0,
+      duration: 0,
+      category: '...',
+      level: '...',
+      description: 'Please wait while we fetch the latest pricing and details...',
+      thumbnail: null,
+      features: [],
     };
-  }, [courseId, actualCourse]);
+  }, [courseId, actualCourse, courseFromApi]);
 
   const handleBillingChange = (field: string, value: string) => {
     setFormData(prev => ({
@@ -148,6 +189,12 @@ const CheckoutPage: AuthenticatedPage = () => {
             </Link>
             <h1 className="text-4xl font-black text-white tracking-tight">Complete your purchase</h1>
             <p className="text-gray-500 font-medium">Please review your order and select a payment method below.</p>
+            {verifying && (
+              <div className="bg-indigo-600/20 border border-indigo-500/30 p-4 rounded-2xl flex items-center gap-4 animate-pulse">
+                <FiLock className="text-indigo-400 h-6 w-6" />
+                <p className="text-sm font-bold text-white uppercase tracking-widest">Verifying your payment and enrolling you now...</p>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">

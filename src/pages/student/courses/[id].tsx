@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { FiPlay, FiClock, FiUsers, FiStar, FiBookOpen, FiCheck, FiLock, FiDownload, FiHeart, FiShare2, FiShoppingCart, FiBarChart2, FiGlobe, FiCheckCircle, FiVideo } from 'react-icons/fi';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -18,7 +18,13 @@ const CourseDetailsPage: AuthenticatedPage = () => {
   const { user } = useAppSelector((state) => state.auth);
   const [activeTab, setActiveTab] = useState<'overview' | 'curriculum' | 'reviews'>('overview');
   
-  const enrolled = currentCourse ? enrolledCourses.some((c: any) => c.id === currentCourse.id || c._id === currentCourse.id) : false;
+  const enrolled = useMemo(() => {
+    if (!currentCourse || !enrolledCourses) return false;
+    return enrolledCourses.some((c: any) => {
+      const id = typeof c === 'string' ? c : (c?._id || c?.id);
+      return String(id) === String(currentCourse.id) || String(id) === String(currentCourse._id);
+    });
+  }, [currentCourse, enrolledCourses]);
   const activeLiveSession = currentCourse ? liveClasses.find(lc => lc.courseId === currentCourse.id && lc.status === 'online') : null;
 
   const isWishlisted = currentCourse ? wishlist.includes(currentCourse.id) : false;

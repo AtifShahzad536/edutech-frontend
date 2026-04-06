@@ -17,6 +17,7 @@
     "clsx": "^2.1.1",
     "hls.js": "^1.6.15",
     "next": "14.0.4",
+    "pusher-js": "^8.5.0",
     "react": "^18",
     "react-dom": "^18",
     "react-hook-form": "^7.48.2",
