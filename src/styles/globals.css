@@ -1,0 +1,181 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #ef4444; /* Cyber Red */
+  --color-accent: #6366f1; /* Indigo */
+  --color-obsidian: #030712;
+  --color-gray-50: #0a0a0a;
+  --color-gray-100: #111111;
+  --color-gray-200: #1a1a1a;
+  --color-gray-300: #262626;
+  --color-gray-400: #404040;
+  --color-gray-500: #737373;
+  --color-gray-600: #a3a3a3;
+  --color-gray-700: #d4d4d4;
+  --color-gray-800: #e5e5e5;
+  --color-gray-900: #f5f5f5;
+  --color-success: #10b981;
+  --color-error: #ef4444;
+  --color-warning: #f59e0b;
+  --font-family: 'Poppins', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  font-family: var(--font-family);
+  background-color: var(--color-obsidian);
+  color: var(--color-gray-900);
+}
+
+body {
+  line-height: 1.6;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-gray-100);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-gray-300);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray-400);
+}
+
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Safari and Chrome */
+}
+
+/* Smooth scrolling */
+.scroll-smooth {
+  scroll-behavior: smooth;
+}
+
+/* Custom animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideX {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Utility classes */
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.3s ease-out;
+}
+
+.animate-slide-x {
+  animation: slideX 15s linear infinite;
+}
+
+/* Custom component styles */
+.btn-primary {
+  @apply bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-6 rounded-xl transition-all duration-200 shadow-lg shadow-indigo-600/10 active:scale-95;
+}
+
+.btn-secondary {
+  @apply bg-white/5 hover:bg-white/10 text-white border border-white/10 font-bold py-2 px-6 rounded-xl transition-all duration-200 active:scale-95;
+}
+
+.btn-outline {
+  @apply border border-white/20 hover:bg-white/5 text-gray-300 font-bold py-2 px-6 rounded-xl transition-all duration-200;
+}
+
+.btn-danger {
+  @apply bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-6 rounded-xl transition-all duration-200 shadow-lg shadow-red-600/10 active:scale-95;
+}
+
+.card {
+  @apply bg-gray-900 border border-white/5 rounded-2xl shadow-2xl p-6 transition-all duration-300;
+}
+
+.input-field {
+  @apply w-full bg-white/[0.03] px-4 py-3 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/50 transition-all;
+}
+
+.text-heading {
+  @apply text-2xl font-black text-white tracking-tight;
+}
+
+.text-subheading {
+  @apply text-lg font-bold text-gray-200 tracking-tight;
+}
+
+.text-body {
+  @apply text-sm text-gray-400 leading-relaxed;
+}
+
+.text-small {
+  @apply text-xs text-gray-500 font-medium;
+}

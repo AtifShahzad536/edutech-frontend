@@ -1,0 +1,20 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://edutech.com/sitemap.xml
+
+# Block common non-content paths
+Disallow: /api/
+Disallow: /_next/
+Disallow: /admin/
+Disallow: /instructor/
+Disallow: /student/
+Disallow: /auth/
+
+# Allow specific API endpoints if needed
+Allow: /api/courses
+Allow: /api/public
+
+# Crawl delay (optional)
+Crawl-delay: 1

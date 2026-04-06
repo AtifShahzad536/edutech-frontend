@@ -1,0 +1,49 @@
+{
+  "css.validate": true,
+  "css.lint.unknownAtRules": "ignore",
+  "tailwindCSS.includeLanguages": [
+    "html",
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact",
+    "css"
+  ],
+  "tailwindCSS.experimental.classRegex": [
+    ["clsx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"]
+  ],
+  "editor.quickSuggestions": {
+    "strings": true
+  },
+  "tailwindCSS.emmetCompletions": true,
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "emmet.includeLanguages": {
+    "javascript": "javascriptreact"
+  },
+  "css.customData": [
+    {
+      "property": "@tailwind",
+      "syntax": "at-rule"
+    },
+    {
+      "property": "@apply",
+      "syntax": "at-rule"
+    },
+    {
+      "property": "@layer",
+      "syntax": "at-rule"
+    }
+  ],
+  "tailwindCSS.classAttributes": ["class", "className"],
+  "tailwindCSS.validate": true,
+  "codex-project-manager.timestampsDataMigrationCompleted": true,
+  "codex-project-manager.cellTypePromotionMigrationCompleted": true,
+  "codex-project-manager.editHistoryFormatMigrationCompleted": true,
+  "codex-project-manager.documentContextHoistMigrationCompleted": true,
+  "codex-project-manager.milestoneCellsMigrationCompleted": true,
+  "codex-project-manager.paratextReorderMigrationCompleted": true,
+  "codex-project-manager.globalReferencesMigrationCompleted": true,
+  "codex-project-manager.cellIdsToUuidMigrationCompleted": true
+}
