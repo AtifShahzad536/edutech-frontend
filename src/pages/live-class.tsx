@@ -78,14 +78,6 @@ const LiveClassPage: AuthenticatedPage = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-3 bg-white/[0.03] border border-white/5 px-3 md:px-5 py-2 rounded-xl">
-              <div className="flex flex-col items-center">
-                <span className="text-[7px] font-black text-gray-500 uppercase tracking-widest">Watching</span>
-                <span className="text-xs font-bold text-white tabular-nums flex items-center gap-1">
-                  <FiUsers className="h-2.5 w-2.5 text-gray-500" /> 124
-                </span>
-              </div>
-              <div className="w-px h-5 bg-white/10" />
               <div className="flex flex-col items-center">
                 <span className="text-[7px] font-black text-gray-500 uppercase tracking-widest">Time</span>
                 <span className="text-xs font-bold text-emerald-400 tabular-nums flex items-center gap-1">
@@ -93,7 +85,6 @@ const LiveClassPage: AuthenticatedPage = () => {
                   {elapsedTime}
                 </span>
               </div>
-            </div>
 
             <button
               onClick={() => router.back()}
@@ -119,17 +110,7 @@ const LiveClassPage: AuthenticatedPage = () => {
                   role="Audience"
                 />
               )}
-              {/* Live badge overlay */}
-              <div className="absolute top-3 left-3 flex items-center gap-2 z-20">
-                <div className="flex items-center gap-1.5 bg-red-600 px-2.5 py-1 rounded-lg shadow-lg">
-                  <FiRadio className="h-2.5 w-2.5 text-white animate-pulse" />
-                  <span className="text-[8px] font-black text-white uppercase tracking-widest">Live</span>
-                </div>
-                <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-sm px-2.5 py-1 rounded-lg border border-white/10">
-                  <FiUsers className="h-2.5 w-2.5 text-gray-400" />
-                  <span className="text-[8px] font-black text-gray-300">124</span>
-                </div>
-              </div>
+
             </div>
 
             {/* Mobile session info */}

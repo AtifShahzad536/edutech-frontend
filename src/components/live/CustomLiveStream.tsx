@@ -307,21 +307,7 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
                 transform: 'translateZ(0)'
               }}
             />
-            {/* Local HUD info */}
-            {localStream && (
-              <div className="absolute top-6 left-6 z-20 flex flex-col gap-2">
-                 <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 bg-red-500 px-3 py-1 rounded-full shadow-[0_0_20px_rgba(239,68,68,0.3)]">
-                       <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
-                       <span className="text-[9px] font-black text-white uppercase tracking-widest">Host Studio</span>
-                    </div>
-                    <div className="bg-black/40 backdrop-blur-xl px-3 py-1 rounded-full border border-white/10 flex items-center gap-2">
-                       <FiUsers className="h-3 w-3 text-indigo-400" />
-                       <span className="text-[9px] font-bold text-gray-300 tabular-nums">{viewerCount} Live</span>
-                    </div>
-                 </div>
-              </div>
-            )}
+
           </div>
         ) : (
           <div className="w-full h-full flex flex-col">
@@ -360,21 +346,7 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
                </div>
             )}
 
-            {/* Global User Count HUD */}
-            <div className="absolute top-6 left-6 z-20 flex items-center gap-3">
-              <div className="bg-black/40 backdrop-blur-xl px-3 py-1.5 rounded-xl border border-white/10 flex items-center gap-2 shadow-2xl">
-                 <FiUsers className="h-3 w-3 text-indigo-400" />
-                 <span className="text-[10px] font-black text-white tabular-nums tracking-widest uppercase">{viewerCount} Live</span>
-              </div>
-              {role === 'Audience' && (
-                <button 
-                  onClick={() => setIsAudioMuted(!isAudioMuted)}
-                  className={`w-8 h-8 rounded-xl border flex items-center justify-center transition-all ${isAudioMuted ? 'bg-red-500/20 text-red-500 border-red-500/20' : 'bg-black/40 text-white border-white/10'}`}
-                >
-                  {isAudioMuted ? <FiMicOff className="h-4 w-4" /> : <FiMic className="h-4 w-4" />}
-                </button>
-              )}
-            </div>
+
           </div>
         )}
 
@@ -446,6 +418,30 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
                </div>
             )}
           </div>
+        )}
+      </div>
+
+      {/* Global User Count & Control HUD */}
+      <div className="absolute top-6 left-6 z-40 flex items-center gap-3">
+        <div className="bg-black/60 backdrop-blur-xl px-4 py-2 rounded-2xl border border-white/10 flex items-center gap-2.5 shadow-2xl">
+            <div className="flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
+              <span className="text-[10px] font-black text-white tracking-widest uppercase">Live</span>
+            </div>
+            <div className="w-px h-3 bg-white/20" />
+            <div className="flex items-center gap-2">
+              <FiUsers className="h-3.5 w-3.5 text-indigo-400" />
+              <span className="text-[11px] font-black text-white tabular-nums tracking-widest uppercase">{viewerCount}</span>
+            </div>
+        </div>
+        
+        {role === 'Audience' && (
+          <button 
+            onClick={() => setIsAudioMuted(!isAudioMuted)}
+            className={`w-10 h-10 rounded-2xl border flex items-center justify-center transition-all shadow-2xl ${isAudioMuted ? 'bg-red-500/20 text-red-500 border-red-500/20' : 'bg-black/60 text-white border-white/10 backdrop-blur-xl'}`}
+          >
+            {isAudioMuted ? <FiMicOff className="h-5 w-5" /> : <FiMic className="h-5 w-5" />}
+          </button>
         )}
       </div>
 
