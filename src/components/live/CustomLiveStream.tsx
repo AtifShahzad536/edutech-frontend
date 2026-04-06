@@ -117,14 +117,17 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
   }, [role, initStream]);
 
   useEffect(() => {
-    const channelName = `presence-room-${roomID}`;
+    const roomChannelName = `presence-room-${roomID}`;
+    const userChannelName = `private-user-${userID}`;
     
-    // Subscribe once
+    // Subscribe to both the shared room and private signaling channels
     if (pusher) {
-       pusher.subscribe(channelName);
+       pusher.subscribe(roomChannelName);
+       pusher.subscribe(userChannelName);
     }
 
-    const hostOnUserJoined = on(channelName, 'user-joined', async (data: any) => {
+    // Discovery on room channel (Everyone listens)
+    const hostOnUserJoined = on(roomChannelName, 'user-joined', async (data: any) => {
       const { userId, from, role: userRole } = data;
       const effectiveFrom = from || userId;
       console.log('[WebRTC] User joined:', effectiveFrom, userRole);
@@ -145,18 +148,17 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
       }
     });
 
-    const audienceOnOffer = on(channelName, 'offer', async (data: any) => {
+    // Handle signals on private user channel (Only target listens)
+    const audienceOnOffer = on(userChannelName, 'offer', async (data: any) => {
       const { offer, to } = data;
       const from = data.from || data.userId || data.senderId;
       
-      // For Audience: only respond to offers meant for us
       if (role === 'Audience' && to === userID) {
         console.log('[WebRTC] Offer received from:', from);
         if (!from) return;
 
         const pc = createPeerConnection(from, emit, roomID, userID);
         
-        // If we are already connected/connecting, don't restart unless the offer is new
         if (pc.remoteDescription && pc.connectionState === 'connected') {
           console.log('[WebRTC] Already connected to host, ignoring redundant offer.');
           return;
@@ -165,13 +167,12 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        // Process early candidates
         await processPendingCandidates(from);
         emit('answer', { answer, from: userID, to: from, roomId: roomID });
       }
     });
 
-    const hostOnAnswer = on(channelName, 'answer', async (data: any) => {
+    const hostOnAnswer = on(userChannelName, 'answer', async (data: any) => {
       const { answer, to } = data;
       const from = data.from || data.userId || data.senderId;
 
@@ -187,7 +188,7 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
       }
     });
 
-    const onIceCandidate = on(channelName, 'ice-candidate', async (data: any) => {
+    const onIceCandidate = on(userChannelName, 'ice-candidate', async (data: any) => {
       const { candidate, to } = data;
       const from = data.from || data.userId || data.senderId;
 
@@ -197,7 +198,7 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
       }
     });
 
-    const onUserLeft = on(channelName, 'user-left', ({ userId }: { userId: string }) => {
+    const onUserLeft = on(roomChannelName, 'user-left', ({ userId }: { userId: string }) => {
       const pc = peerConnections.get(userId);
       if (pc) {
         pc.close();
@@ -212,8 +213,6 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
       if (hostOnAnswer) hostOnAnswer();
       if (onIceCandidate) onIceCandidate();
       if (onUserLeft) onUserLeft();
-      // We don't unsubscribe from the channel here to prevent blinking.
-      // Pusher cleans up once the component is fully destroyed or the connection closes.
     };
   }, [pusher, localStream, role, createPeerConnection, emit, on, roomID, userID]); // removed peerConnections map from deps to prevent re-runs on handshake
 

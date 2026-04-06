@@ -35,9 +35,15 @@ export const useSocket = () => {
     // unless they are client-events on private channels.
     // We route this through our backend trigger endpoint.
     try {
-      // Use roomId if provided, else fallback to a default or global channel
-      const roomId = data.roomId || data.roomID || (data.to ? null : 'global');
-      const channel = roomId ? `presence-room-${roomId}` : (data.to ? `private-user-${data.to}` : 'global');
+      // Priority 1: If 'to' is specified, this is a private signaling event
+      // Priority 2: If 'roomId' is specified, it's a shared classroom event
+      // Priority 3: Fallback to global
+      const targetId = data.to;
+      const roomId = data.roomId || data.roomID;
+
+      const channel = targetId 
+        ? `private-user-${targetId}` 
+        : (roomId ? `presence-room-${roomId}` : 'global');
       
       await axios.post(`${API_URL}/live/pusher/trigger`, {
         event,
