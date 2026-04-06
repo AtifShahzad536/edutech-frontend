@@ -238,6 +238,12 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
               muted 
               playsInline 
               className={`w-full h-full object-cover transition-all duration-1000 ${localStream ? 'opacity-100 scale-100' : 'opacity-0 scale-105'}`}
+              style={{ 
+                willChange: 'transform',
+                backfaceVisibility: 'hidden',
+                perspective: 1000,
+                transform: 'translateZ(0)'
+              }}
             />
             {/* Local HUD info */}
             {localStream && (
@@ -265,6 +271,12 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
                     playsInline 
                     ref={(el) => { if(el) el.srcObject = stream }}
                     className="flex-1 w-full h-full object-cover"
+                    style={{ 
+                      willChange: 'transform',
+                      backfaceVisibility: 'hidden',
+                      perspective: 1000,
+                      transform: 'translateZ(0)'
+                    }}
                   />
                 ))
             ) : (
@@ -354,4 +366,4 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
   );
 });
 
-export default CustomLiveStream;
+export default React.memo(CustomLiveStream);
