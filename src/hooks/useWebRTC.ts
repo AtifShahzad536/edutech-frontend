@@ -33,6 +33,7 @@ export const useWebRTC = () => {
     targetId: string, 
     socketEmit: (event: string, data: any) => void,
     roomId: string,
+    fromId: string,
     stream?: MediaStream
   ) => {
     const pc = new RTCPeerConnection(iceServers);
@@ -44,7 +45,7 @@ export const useWebRTC = () => {
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        socketEmit('ice-candidate', { candidate: event.candidate, to: targetId, roomId });
+        socketEmit('ice-candidate', { candidate: event.candidate, from: fromId, to: targetId, roomId });
       }
     };
 

@@ -124,10 +124,10 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
           return;
         }
         console.log('[WebRTC] Host creating offer for:', userId);
-        const pc = createPeerConnection(userId, emit, roomID, localStream);
+        const pc = createPeerConnection(userId, emit, roomID, userID, localStream);
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        emit('offer', { offer, to: userId, roomId: roomID });
+        emit('offer', { offer, from: userID, to: userId, roomId: roomID });
         setViewerCount(prev => prev + 1);
       }
     });
@@ -137,11 +137,11 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
       console.log('[WebRTC] Signal check. from:', from, 'to:', to, 'self:', userID);
       if (role === 'Audience' && to === userID) {
         console.log('[WebRTC] Offer received from:', from);
-        const pc = createPeerConnection(from, emit, roomID);
+        const pc = createPeerConnection(from, emit, roomID, userID);
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        emit('answer', { answer, to: from, roomId: roomID });
+        emit('answer', { answer, from: userID, to: from, roomId: roomID });
       }
     });
 
