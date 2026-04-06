@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   FiUsers, FiPhoneOff, FiSend,
   FiMessageSquare, FiRadio, FiArrowLeft
@@ -31,8 +31,10 @@ const LiveClassPage: AuthenticatedPage = () => {
   const { roomID } = router.query;
   useAuthSync();
 
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isFullscreenMode, setIsFullscreenMode] = useState(false);
+  const [isChatVisible, setIsChatVisible] = useState(true);
   const [elapsedTime, setElapsedTime] = useState('00:00');
+  const mainContainerRef = useRef<HTMLDivElement>(null);
 
   // Uptime counter (local display)
   useEffect(() => {
@@ -48,19 +50,27 @@ const LiveClassPage: AuthenticatedPage = () => {
 
   // Fullscreen tracking
   useEffect(() => {
-    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    const handler = () => setIsFullscreenMode(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handler);
     return () => document.removeEventListener('fullscreenchange', handler);
+  }, []);
+
+  const toggleMainFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else if (mainContainerRef.current?.requestFullscreen) {
+      mainContainerRef.current.requestFullscreen();
+    }
   }, []);
 
   if (!roomID || !user) return null;
 
   return (
     <DashboardLayout>
-      <div className="flex flex-col xl:h-[calc(100vh-120px)] xl:overflow-hidden overflow-y-auto pb-8 xl:pb-0 gap-4 animate-in fade-in duration-500">
+      <div ref={mainContainerRef} className={`flex flex-col xl:h-[calc(100vh-120px)] xl:overflow-hidden overflow-y-auto pb-8 xl:pb-0 gap-4 animate-in fade-in duration-500 bg-[#070708] ${isFullscreenMode ? 'fixed inset-0 z-[9999] h-screen w-screen p-4' : ''}`}>
 
         {/* Compact Header */}
-        <header className="flex items-center justify-between gap-4 px-2">
+        <header className={`flex items-center justify-between gap-4 px-2 ${isFullscreenMode ? 'hidden' : ''}`}>
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
@@ -97,7 +107,7 @@ const LiveClassPage: AuthenticatedPage = () => {
         </header>
 
         {/* Main Content — Video + Chat */}
-        <div className="flex flex-col xl:flex-row gap-4 flex-1 min-h-0">
+        <div className={`flex gap-4 flex-1 min-h-0 ${isFullscreenMode ? 'flex-row' : 'flex-col xl:flex-row'}`}>
 
           {/* Video Section */}
           <div className="flex-1 flex flex-col gap-4 min-w-0">
@@ -108,6 +118,10 @@ const LiveClassPage: AuthenticatedPage = () => {
                   userID={user.id}
                   userName={`${user.firstName} ${user.lastName}`}
                   role="Audience"
+                  onToggleFullScreen={toggleMainFullscreen}
+                  onToggleChat={() => setIsChatVisible(!isChatVisible)}
+                  isChatVisible={isChatVisible}
+                  isFullscreenMode={isFullscreenMode}
                 />
               )}
 
@@ -123,7 +137,7 @@ const LiveClassPage: AuthenticatedPage = () => {
           </div>
 
           {/* Live Chat Sidebar / Card */}
-          <div className="xl:w-[360px] flex flex-col xl:min-h-0 min-h-[420px]">
+          <div className={`flex flex-col transition-all duration-500 ease-in-out ${isChatVisible ? (isFullscreenMode ? 'w-[320px] h-full scale-100 opacity-100' : 'xl:w-[360px] min-h-[420px]') : 'w-0 h-0 overflow-hidden scale-95 opacity-0'}`}>
             <ChatSection 
               roomId={String(roomID || '101')}
               userId={user.id}

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { useSocket } from '@/hooks/useSocket';
 import { useWebRTC } from '@/hooks/useWebRTC';
-import { FiActivity, FiRefreshCw, FiAlertTriangle, FiVideo, FiVideoOff, FiMic, FiMicOff, FiPhoneOff, FiUsers } from 'react-icons/fi';
+import { FiActivity, FiRefreshCw, FiAlertTriangle, FiVideo, FiVideoOff, FiMic, FiMicOff, FiPhoneOff, FiUsers, FiMessageSquare, FiMaximize, FiMinimize } from 'react-icons/fi';
 
 interface CustomLiveStreamProps {
   roomID: string;
@@ -11,6 +11,10 @@ interface CustomLiveStreamProps {
   onToggleAudio?: (isMuted: boolean) => void;
   onToggleVideo?: (isVideoOff: boolean) => void;
   onStreamReady?: () => void;
+  onToggleChat?: () => void;
+  onToggleFullScreen?: () => void;
+  isChatVisible?: boolean;
+  isFullscreenMode?: boolean;
 }
 
 export interface CustomLiveStreamHandle {
@@ -22,7 +26,8 @@ export interface CustomLiveStreamHandle {
 }
 
 const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProps>(({ 
-  roomID, userID, userName, role, onToggleAudio, onToggleVideo, onStreamReady 
+  roomID, userID, userName, role, onToggleAudio, onToggleVideo, onStreamReady,
+  onToggleChat, onToggleFullScreen, isChatVisible = true, isFullscreenMode = false
 }, ref) => {
   const { emit, on, pusher } = useSocket();
   const { 
@@ -63,12 +68,16 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
   }, [localStream, isVideoOff]);
 
   const toggleFullScreen = useCallback(() => {
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-    } else if (containerRef.current?.requestFullscreen) {
-      containerRef.current.requestFullscreen();
+    if (onToggleFullScreen) {
+      onToggleFullScreen();
+    } else {
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } else if (containerRef.current?.requestFullscreen) {
+        containerRef.current.requestFullscreen();
+      }
     }
-  }, []);
+  }, [onToggleFullScreen]);
 
   useImperativeHandle(ref, () => ({
     toggleVideo,
@@ -419,9 +428,43 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
             )}
           </div>
         )}
+        {/* Bottom Center Controls (Premium Student Bar) */}
+        {!isInitializing && (
+          <div className={`absolute bottom-8 left-1/2 -translate-x-1/2 z-40 transition-all duration-500 ${role === 'Audience' ? 'opacity-0 group-hover/live:opacity-100 translate-y-2 group-hover/live:translate-y-0' : 'hidden'}`}>
+             <div className="flex items-center gap-3 px-6 py-4 bg-black/60 backdrop-blur-2xl rounded-3xl border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+                {/* Audio Toggle */}
+                <button 
+                  onClick={() => setIsAudioMuted(!isAudioMuted)}
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isAudioMuted ? 'bg-red-500/20 text-red-500 border border-red-500/30' : 'bg-white/5 hover:bg-white/10 text-white border border-white/5'}`}
+                >
+                  {isAudioMuted ? <FiMicOff className="h-6 w-6" /> : <FiMic className="h-6 w-6" />}
+                </button>
+
+                <div className="w-px h-6 bg-white/10 mx-1" />
+
+                {/* Toggle Chat button */}
+                <button 
+                  onClick={onToggleChat}
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${!isChatVisible ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-white/5 hover:bg-white/10 text-white border border-white/5'}`}
+                  title={isChatVisible ? "Hide Chat" : "Show Chat"}
+                >
+                  <FiMessageSquare className="h-6 w-6" />
+                </button>
+
+                {/* Fullscreen Toggle */}
+                <button 
+                  onClick={toggleFullScreen}
+                  className="w-12 h-12 rounded-2xl bg-white hover:bg-gray-100 flex items-center justify-center text-black transition-all shadow-xl"
+                  title="Toggle Fullscreen"
+                >
+                  {isFullscreenMode ? <FiMinimize className="h-6 w-6" /> : <FiMaximize className="h-6 w-6" />}
+                </button>
+             </div>
+          </div>
+        )}
       </div>
 
-      {/* Global User Count & Control HUD */}
+      {/* Global User Count HUD */}
       <div className="absolute top-6 left-6 z-40 flex items-center gap-3">
         <div className="bg-black/60 backdrop-blur-xl px-4 py-2 rounded-2xl border border-white/10 flex items-center gap-2.5 shadow-2xl">
             <div className="flex items-center gap-1.5">
@@ -434,15 +477,6 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
               <span className="text-[11px] font-black text-white tabular-nums tracking-widest uppercase">{viewerCount}</span>
             </div>
         </div>
-        
-        {role === 'Audience' && (
-          <button 
-            onClick={() => setIsAudioMuted(!isAudioMuted)}
-            className={`w-10 h-10 rounded-2xl border flex items-center justify-center transition-all shadow-2xl ${isAudioMuted ? 'bg-red-500/20 text-red-500 border-red-500/20' : 'bg-black/60 text-white border-white/10 backdrop-blur-xl'}`}
-          >
-            {isAudioMuted ? <FiMicOff className="h-5 w-5" /> : <FiMic className="h-5 w-5" />}
-          </button>
-        )}
       </div>
 
       {/* Redundant Host Controls removed, handled by parent Studio UI */}
