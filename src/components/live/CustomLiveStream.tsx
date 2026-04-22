@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback, useImperativeHandle, f
 import { useSocket } from '@/hooks/useSocket';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { FiActivity, FiRefreshCw, FiAlertTriangle, FiVideo, FiVideoOff, FiMic, FiMicOff, FiPhoneOff, FiUsers, FiMessageSquare, FiMaximize, FiMinimize } from 'react-icons/fi';
+import toast from 'react-hot-toast';
 
 interface CustomLiveStreamProps {
   roomID: string;
@@ -143,96 +144,47 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
     const roomChannelName = `presence-room-${roomID}`;
     const userChannelName = `private-user-${userID}`;
     
-    console.log(`[Socket] Comp mounting. Subscribing to: ${roomChannelName} and ${userChannelName}`);
+    if (!pusher) return;
+
+    // 1. Shared Presence Channel (Viewer Count & Auto-Discovery)
+    const roomChannel = pusher.channel(roomChannelName) || pusher.subscribe(roomChannelName);
     
-    // Subscribe to both the shared room and private signaling channels
-    if (pusher) {
-       console.log('[Socket] Pusher state:', pusher.connection.state);
-       
-       const roomChannel = pusher.subscribe(roomChannelName);
-       const userChannel = pusher.subscribe(userChannelName);
-
-       roomChannel.bind('pusher:subscription_succeeded', () => console.log(`[Socket] Successfully subscribed to room: ${roomChannelName}`));
-       userChannel.bind('pusher:subscription_succeeded', () => console.log(`[Socket] Successfully subscribed to user channel: ${userChannelName}`));
-       
-       roomChannel.bind('pusher:subscription_error', (err: any) => console.error(`[Socket] Error subscribing to room:`, err));
-       userChannel.bind('pusher:subscription_error', (err: any) => console.error(`[Socket] Error subscribing to user channel:`, err));
-    }
-
-    // Discovery on room channel (Everyone listens)
-    // Real-time Viewer Count and Discovery (Using Pusher's native presence events)
-    if (pusher) {
-       const roomChannel = pusher.channel(roomChannelName) || pusher.subscribe(roomChannelName);
-       
-       // Sync initial count when subscribing
-       roomChannel.bind('pusher:subscription_succeeded', (members: any) => {
-         console.log(`[Socket] Subscribed to room. Initial members: ${members.count}`);
-         setViewerCount(members.count);
-       });
-
-       roomChannel.bind('pusher:member_added', (member: any) => {
-         const studentId = member.id;
-         console.log(`[WebRTC] Member Joined: ${studentId}`);
-         setViewerCount(prev => prev + 1);
-
-         if (role === 'Host' && localStream) {
-            console.log(`[WebRTC] Host creating offer for: ${studentId}`);
-            const pc = createPeerConnection(studentId, emit, roomID, userID, localStream);
-            pc.createOffer().then(async (offer) => {
-               await pc.setLocalDescription(offer);
-               await processPendingCandidates(studentId);
-               emit('offer', { offer, from: userID, to: studentId, roomId: roomID });
-            });
-         }
-       });
-
-       roomChannel.bind('pusher:member_removed', (member: any) => {
-         const studentId = member.id;
-         console.log(`[WebRTC] Member Removed: ${studentId}`);
-         setViewerCount(prev => Math.max(0, prev - 1));
-
-         if (role === 'Host') {
-           const pc = peerConnections.get(studentId);
-           if (pc) {
-             pc.close();
-             peerConnections.delete(studentId);
-           }
-         }
-       });
-    }
-
-    // Keep custom user-joined as a fallback for re-syncs
-    const hostOnUserJoined = on(roomChannelName, 'user-joined', async (data: any) => {
-      const { userId, from, role: userRole } = data;
-      const effectiveFrom = from || userId;
-      
-      if (role === 'Host' && userRole === 'Audience') {
-        console.log(`[WebRTC] Fallback user-joined received: ${effectiveFrom}`);
-        if (!localStream) return;
-        const pc = createPeerConnection(effectiveFrom, emit, roomID, userID, localStream);
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        await processPendingCandidates(effectiveFrom);
-        emit('offer', { offer, from: userID, to: effectiveFrom, roomId: roomID });
+    roomChannel.bind('pusher:subscription_succeeded', (members: any) => {
+      setViewerCount(members.count);
+      if (role === 'Host') {
+        toast.success('Studio Environment Ready');
+      } else {
+        toast.success('Connected to Classroom');
       }
     });
 
-    // Handle signals on private user channel (Only target listens)
-    const audienceOnOffer = on(userChannelName, 'offer', async (data: any) => {
-      const { offer, to } = data;
-      const from = data.from || data.userId || data.senderId;
-      
-      if (role === 'Audience' && to === userID) {
-        console.log('[WebRTC] Offer received from:', from);
-        if (!from) return;
-
-        const pc = createPeerConnection(from, emit, roomID, userID);
-        
-        if (pc.remoteDescription && pc.connectionState === 'connected') {
-          console.log('[WebRTC] Already connected to host, ignoring redundant offer.');
-          return;
+    roomChannel.bind('pusher:member_added', (member: any) => {
+      setViewerCount(prev => prev + 1);
+      if (role === 'Host') {
+        toast.success('New student entered', { icon: '👋' });
+        if (localStream) {
+          const pc = createPeerConnection(member.id, emit, roomID, userID, localStream);
+          pc.createOffer().then(async (offer) => {
+            await pc.setLocalDescription(offer);
+            await processPendingCandidates(member.id);
+            emit('offer', { offer, from: userID, to: member.id, roomId: roomID });
+          });
         }
+      }
+    });
 
+    roomChannel.bind('pusher:member_removed', () => {
+      setViewerCount(prev => Math.max(0, prev - 1));
+    });
+
+    // 2. Private Signaling Channel (WebRTC Handshake)
+    const userChannel = pusher.channel(userChannelName) || pusher.subscribe(userChannelName);
+
+    userChannel.bind('offer', async (data: any) => {
+      const { offer, to, from } = data;
+      if (role === 'Audience' && to === userID && from) {
+        const pc = createPeerConnection(from, emit, roomID, userID);
+        if (pc.connectionState === 'connected') return;
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
@@ -241,52 +193,44 @@ const CustomLiveStream = forwardRef<CustomLiveStreamHandle, CustomLiveStreamProp
       }
     });
 
-    const hostOnAnswer = on(userChannelName, 'answer', async (data: any) => {
-      const { answer, to } = data;
-      const from = data.from || data.userId || data.senderId;
-
-      if (role === 'Host' && to === userID) {
-        console.log('[WebRTC] Answer received from:', from);
-        if (!from) return;
-        const pc = peerConnections.get(from);
-        if (pc) {
-          if (pc.connectionState === 'connected') return;
+    userChannel.bind('answer', async (data: any) => {
+      const { answer, to, from } = data;
+      if (role === 'Host' && to === userID && from) {
+        const pc = (peerConnections as Map<string, RTCPeerConnection>).get(from);
+        if (pc && pc.connectionState !== 'connected') {
           await pc.setRemoteDescription(new RTCSessionDescription(answer));
           await processPendingCandidates(from);
         }
       }
     });
 
-    const onIceCandidate = on(userChannelName, 'ice-candidate', async (data: any) => {
-      const { candidate, to } = data;
-      const from = data.from || data.userId || data.senderId;
-
-      if (to === userID) {
-        if (!from) return;
+    userChannel.bind('ice-candidate', async (data: any) => {
+      const { candidate, to, from } = data;
+      if (to === userID && from) {
         await addIceCandidate(from, candidate);
       }
     });
 
-    // Final room cleanup for audience
-    const onUserLeftFallback = on(roomChannelName, 'user-left', ({ userId }: { userId: string }) => {
-      if (role === 'Host') { // Audience doesn't need to track user-left
-        const pc = peerConnections.get(userId);
-        if (pc) {
-          pc.close();
-          peerConnections.delete(userId);
-          setViewerCount(prev => Math.max(0, prev - 1));
-        }
+    // 3. Fallbacks (Custom Event System)
+    const hostOnUserJoined = on(roomChannelName, 'user-joined', async (data: any) => {
+      if (role === 'Host' && data.role === 'Audience' && localStream) {
+        const studentId = data.from || data.userId;
+        if (!studentId) return;
+        const pc = createPeerConnection(studentId, emit, roomID, userID, localStream);
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await processPendingCandidates(studentId);
+        emit('offer', { offer, from: userID, to: studentId, roomId: roomID });
       }
     });
 
     return () => {
       if (hostOnUserJoined) hostOnUserJoined();
-      if (audienceOnOffer) audienceOnOffer();
-      if (hostOnAnswer) hostOnAnswer();
-      if (onIceCandidate) onIceCandidate();
-      if (onUserLeftFallback) onUserLeftFallback();
+      // Pusher handles its own unsubscribes if configured, but explicit is better
+      pusher.unsubscribe(roomChannelName);
+      pusher.unsubscribe(userChannelName);
     };
-  }, [pusher, localStream, role, createPeerConnection, emit, on, roomID, userID]); // removed peerConnections map from deps to prevent re-runs on handshake
+  }, [pusher, roomID, userID, role, createPeerConnection, emit, on, localStream]); // removed peerConnections map from deps to prevent re-runs on handshake
 
   useEffect(() => {
     return () => {

@@ -14,8 +14,7 @@ import { useAppSelector, useAppDispatch } from '@/hooks/useRedux';
 import { clearCart } from '@/store/slices/courseSlice';
 import { refreshUser } from '@/store/slices/authSlice';
 import { AuthenticatedPage } from '@/types';
-import axios from 'axios';
-import API_URL from '@/config/api';
+import apiClient from '@/config/apiClient';
 
 const CheckoutPage: AuthenticatedPage = () => {
   const router = useRouter();
@@ -56,11 +55,9 @@ const CheckoutPage: AuthenticatedPage = () => {
         
         try {
           // 1. Verify with backend first (Fallback enrollment)
-          const verifyRes = await axios.get(`${API_URL}/payments/verify/${sessionId}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
+          const verifyRes: any = await apiClient.get(`/payments/verify/${sessionId}`);
 
-          if (verifyRes.data.success) {
+          if (verifyRes.success) {
             // 2. Refresh user to sync enrolled courses
             await dispatch(refreshUser() as any);
             
@@ -68,7 +65,7 @@ const CheckoutPage: AuthenticatedPage = () => {
             dispatch(clearCart());
             
             // 4. Set UI states
-            setPurchasedAmount(verifyRes.data.data.amountTotal || parseFloat(localStorage.getItem('pendingCartTotal') || '0'));
+            setPurchasedAmount(verifyRes.data.amountTotal || parseFloat(localStorage.getItem('pendingCartTotal') || '0'));
             setPaymentSuccess(true);
             setActiveStep('confirmation');
             hasProcessed.current = true;
@@ -143,14 +140,12 @@ const CheckoutPage: AuthenticatedPage = () => {
       const currentTotal = cartItems.reduce((sum, item) => sum + item.price, 0);
       localStorage.setItem('pendingCartTotal', String(currentTotal));
 
-      const response = await axios.post(`${API_URL}/payments/checkout`, {
+      const response: any = await apiClient.post('/payments/checkout', {
         courseIds: cartIds
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (response.data.success && response.data.data) {
-        window.location.href = response.data.data;
+      if (response.success && response.data) {
+        window.location.href = response.data;
       } else {
         localStorage.removeItem('pendingCartTotal');
         setPaymentError('Failed to initiate checkout. Please try again.');

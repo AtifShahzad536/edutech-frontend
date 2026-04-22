@@ -90,19 +90,47 @@ function MyApp(props: AppProps) {
     <Provider store={store}>
       <Toaster 
         position="top-center"
+        reverseOrder={false}
+        gutter={8}
         toastOptions={{
+          duration: 5000,
           style: {
-            background: '#0a0a0a',
+            background: 'rgba(7, 7, 8, 0.8)',
+            backdropFilter: 'blur(16px)',
             color: '#fff',
-            border: '1px solid rgba(255,255,255,0.1)',
-            fontSize: '12px',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            fontSize: '11px',
             fontFamily: 'inherit',
-            fontWeight: '600',
+            fontWeight: '900',
             textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            borderRadius: '12px',
-            padding: '12px 24px',
+            letterSpacing: '0.2em',
+            borderRadius: '16px',
+            padding: '16px 24px',
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
           },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff',
+            },
+            style: {
+              border: '1px solid rgba(16, 185, 129, 0.2)',
+            }
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#fff',
+            },
+            style: {
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+            }
+          },
+          loading: {
+             style: {
+               border: '1px solid rgba(99, 102, 241, 0.2)',
+             }
+          }
         }}
       />
       <AppInner {...props} />

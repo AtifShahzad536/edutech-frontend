@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import Pusher from 'pusher-js';
-import axios from 'axios';
-import API_URL from '@/config/api';
+import apiClient from '@/config/apiClient';
 
 const PUSHER_KEY = process.env.NEXT_PUBLIC_PUSHER_KEY || '';
 const PUSHER_CLUSTER = process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'mt1';
@@ -57,12 +56,10 @@ export const useSocket = () => {
         ? `private-user-${targetId}`
         : (roomId ? `presence-room-${roomId}` : 'global');
 
-      await axios.post(`${API_URL}/live/pusher/trigger`, {
+      await apiClient.post('/live/pusher/trigger', {
         event,
         data,
         channel
-      }, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
     } catch (error) {
       console.error('Pusher trigger failed:', error);

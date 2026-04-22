@@ -14,13 +14,7 @@ import PublicLayout from '@/components/layout/PublicLayout';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import clsx from 'clsx';
-import axios from 'axios';
-import { useAppSelector, useAppDispatch } from '@/hooks/useRedux';
-import { enrollCourse } from '@/store/slices/courseSlice';
-import { refreshUser } from '@/store/slices/authSlice';
-import { addNotification } from '@/store/slices/uiSlice';
-import { AuthenticatedPage } from '@/types';
-import API_URL from '@/config/api';
+import apiClient from '@/config/apiClient';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -68,9 +62,9 @@ const CheckoutPage: AuthenticatedPage = () => {
       const fetchCourse = async () => {
         setLoadingCourse(true);
         try {
-          const res = await axios.get(`${API_URL}/courses/${courseId}`);
-          if (res.data.success) {
-            setCourseFromApi(res.data.data);
+          const response: any = await apiClient.get(`/courses/${courseId}`);
+          if (response.success) {
+            setCourseFromApi(response.data);
           }
         } catch (err) {
           console.error('Error fetching course for checkout:', err);
@@ -89,10 +83,8 @@ const CheckoutPage: AuthenticatedPage = () => {
       const verifyPayment = async () => {
         setVerifying(true);
         try {
-          const res = await axios.get(`${API_URL}/payments/verify/${session_id}`, {
-            headers: { Authorization: `Bearer ${token || localStorage.getItem('token')}` }
-          });
-          if (res.data.success) {
+          const response: any = await apiClient.get(`/payments/verify/${session_id}`);
+          if (response.success) {
             await dispatch(refreshUser() as any);
             router.push(`/student/learning/${courseId}?new_enroll=true`);
           }
@@ -147,16 +139,13 @@ const CheckoutPage: AuthenticatedPage = () => {
     setIsProcessing(true);
     
     try {
-      const storedToken = token || localStorage.getItem('token');
-      const response = await axios.post(`${API_URL}/payments/checkout`, {
+      const response: any = await apiClient.post('/payments/checkout', {
         courseIds: [courseId]
-      }, {
-        headers: { Authorization: `Bearer ${storedToken}` }
       });
 
-      if (response.data.success && response.data.data) {
+      if (response.success && response.data) {
         // Redirect to Stripe Checkout
-        window.location.href = response.data.data;
+        window.location.href = response.data;
       } else {
         alert('Failed to initiate checkout. Please try again.');
         setIsProcessing(false);

@@ -13,8 +13,7 @@ import { fetchCourseById, toggleWishlist } from '@/store/slices/courseSlice';
 import { addNotification } from '@/store/slices/uiSlice';
 import { selectLiveClasses } from '@/store/index';
 import { Lesson, AuthenticatedPage } from '@/types';
-import axios from 'axios';
-import API_URL from '@/config/api';
+import apiClient from '@/config/apiClient';
 
 interface ExtendedLesson extends Omit<Lesson, 'courseId' | 'description' | 'type' | 'content' | 'duration' | 'createdAt' | 'updatedAt' | 'order' | 'isPreview'> {
   courseId?: string;
@@ -145,11 +144,9 @@ const CourseLearningPage: AuthenticatedPage = () => {
   const fetchDiscussions = useCallback(async () => {
     if (!courseId || !token) return;
     try {
-      const response = await axios.get(`${API_URL}/discussions/${courseId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (response.data.success) {
-        setDiscussions(response.data.data);
+      const response: any = await apiClient.get(`/discussions/${courseId}`);
+      if (response.success) {
+        setDiscussions(response.data);
       }
     } catch (err) {
       console.error('Failed to fetch discussions', err);
@@ -166,12 +163,10 @@ const CourseLearningPage: AuthenticatedPage = () => {
     if (!newQuestionTitle.trim() || !newQuestionContent.trim() || !token) return;
     setIsSubmittingContext(true);
     try {
-      await axios.post(`${API_URL}/discussions`, {
+      await apiClient.post('/discussions', {
         courseId,
         title: newQuestionTitle,
         content: newQuestionContent
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
       });
       setNewQuestionTitle('');
       setNewQuestionContent('');

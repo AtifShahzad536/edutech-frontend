@@ -7,8 +7,7 @@ import {
 } from 'react-icons/fi';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import CourseCard from '@/components/ui/CourseCard';
-import axios from 'axios';
-import API_URL from '@/config/api';
+import apiClient from '@/config/apiClient';
 import { useAppSelector } from '@/hooks/useRedux';
 import { RootState } from '@/store';
 import { AuthenticatedPage } from '@/types';
@@ -26,11 +25,9 @@ const MyCoursesPage: AuthenticatedPage = () => {
       if (!token) return;
       setLoading(true);
       try {
-        const response = await axios.get(`${API_URL}/dashboard/stats`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const response: any = await apiClient.get('/dashboard/stats');
         
-        if (response.data.success) {
+        if (response.success) {
           // Format data for CourseCard
           const enrolled = (response.data.enrolledCourses || []).map((c: any) => ({
             id: c.id || c._id,

@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { User, AuthState } from '@/types';
-import axios from 'axios';
+import apiClient from '@/config/apiClient';
 
 // Helper function to safely access localStorage
 const getLocalStorageItem = (key: string): string | null => {
@@ -22,20 +22,22 @@ const removeLocalStorageItem = (key: string): void => {
   }
 };
 
-import API_URL from '@/config/api';
+// Using apiClient which already includes API_URL and Token Interceptors
 
 export const loginUser = createAsyncThunk(
   'auth/login',
   async (credentials: any, { rejectWithValue }) => {
     try {
-      const response = await axios.post(`${API_URL}/auth/login`, credentials);
+      const response: any = await apiClient.post('/auth/login', credentials);
+      // Backend returns { success, data: { token, user } }
+      const { token, user } = response.data;
       if (typeof window !== 'undefined') {
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
       }
-      return response.data;
+      return { token, user };
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Login failed');
+      return rejectWithValue(error || 'Login failed');
     }
   }
 );
@@ -44,14 +46,15 @@ export const registerUser = createAsyncThunk(
   'auth/register',
   async (userData: any, { rejectWithValue }) => {
     try {
-      const response = await axios.post(`${API_URL}/auth/register`, userData);
+      const response: any = await apiClient.post('/auth/register', userData);
+      const { token, user } = response.data;
       if (typeof window !== 'undefined') {
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
       }
-      return response.data;
+      return { token, user };
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Registration failed');
+      return rejectWithValue(error || 'Registration failed');
     }
   }
 );
@@ -60,16 +63,14 @@ export const updateUserProfile = createAsyncThunk(
   'auth/updateProfile',
   async (userData: any, { rejectWithValue }) => {
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      const response = await axios.patch(`${API_URL}/users/profile`, userData, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (typeof window !== 'undefined' && response.data.success) {
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+      const response: any = await apiClient.patch('/users/profile', userData);
+      const user = response.data;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('user', JSON.stringify(user));
       }
-      return response.data;
+      return user;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Update failed');
+      return rejectWithValue(error || 'Update failed');
     }
   }
 );
@@ -81,13 +82,12 @@ export const initializeAuth = createAsyncThunk(
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       if (!token) return null;
 
-      const response = await axios.get(`${API_URL}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response: any = await apiClient.get('/auth/me');
+      const user = response.data;
       if (typeof window !== 'undefined') {
-        localStorage.setItem('user', JSON.stringify(response.data.data));
+        localStorage.setItem('user', JSON.stringify(user));
       }
-      return { user: response.data.data, token };
+      return { user, token };
     } catch (error: any) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('token');
@@ -109,15 +109,12 @@ export const refreshUser = createAsyncThunk(
   'auth/refreshUser',
   async (_, { rejectWithValue }) => {
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      if (!token) return rejectWithValue('No token');
-      const response = await axios.get(`${API_URL}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response: any = await apiClient.get('/auth/me');
+      const user = response.data;
       if (typeof window !== 'undefined') {
-        localStorage.setItem('user', JSON.stringify(response.data.data));
+        localStorage.setItem('user', JSON.stringify(user));
       }
-      return response.data.data;
+      return user;
     } catch (error: any) {
       return rejectWithValue('Refresh failed');
     }

@@ -1,15 +1,15 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Course, CourseState } from '@/types';
-import axios from 'axios';
+import apiClient from '@/config/apiClient';
 
-import API_URL from '@/config/api';
+// Using apiClient centralized config
 
 export const fetchCourses = createAsyncThunk('courses/fetchCourses', async (_, { rejectWithValue }) => {
   try {
-    const response = await axios.get(`${API_URL}/courses`);
-    return response.data.data;
+    const response: any = await apiClient.get('/courses');
+    return response.data;
   } catch (error: any) {
-    return rejectWithValue(error.response?.data?.message || 'Failed to fetch courses');
+    return rejectWithValue(error || 'Failed to fetch courses');
   }
 });
 
@@ -17,10 +17,10 @@ export const fetchCourseById = createAsyncThunk(
   'courses/fetchCourseById',
   async (id: string, { rejectWithValue }) => {
     try {
-      const response = await axios.get(`${API_URL}/courses/${id}`);
-      return response.data.data;
+      const response: any = await apiClient.get(`/courses/${id}`);
+      return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch course');
+      return rejectWithValue(error || 'Failed to fetch course');
     }
   }
 );
@@ -29,13 +29,10 @@ export const fetchInstructorCourses = createAsyncThunk(
   'courses/fetchInstructorCourses',
   async (_, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/instructor/courses`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      return response.data.data;
+      const response: any = await apiClient.get('/instructor/courses');
+      return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch instructor courses');
+      return rejectWithValue(error || 'Failed to fetch instructor courses');
     }
   }
 );
@@ -44,13 +41,10 @@ export const createCourse = createAsyncThunk(
   'courses/createCourse',
   async (courseData: Partial<Course>, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(`${API_URL}/courses`, courseData, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      return response.data.data;
+      const response: any = await apiClient.post('/courses', courseData);
+      return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to create course');
+      return rejectWithValue(error || 'Failed to create course');
     }
   }
 );

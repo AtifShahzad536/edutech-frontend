@@ -5,6 +5,9 @@ import {
   FiMessageSquare, FiX, FiPhoneOff, FiMoreVertical, FiHeart, FiMaximize, FiMinimize,
   FiMic, FiMicOff, FiVideoOff, FiSend
 } from 'react-icons/fi';
+import toast from 'react-hot-toast';
+import CustomModal from '@/components/ui/CustomModal';
+import { useConfirm } from '@/hooks/useConfirm';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Button from '@/components/ui/Button';
 import { useAppSelector, useAppDispatch } from '@/hooks/useRedux';
@@ -33,6 +36,7 @@ const InstructorStudioPage: AuthenticatedPage = () => {
   const [isSynced, setIsSynced] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const { confirm, handleConfirm, handleCancel, isOpen, options } = useConfirm();
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const formatTime = (secs: number) => {
@@ -103,14 +107,27 @@ const InstructorStudioPage: AuthenticatedPage = () => {
 
   const handleEndSession = async () => {
     if (!roomID) return;
-    if (confirm('Are you sure you want to end this live session? Students will no longer be able to join.')) {
+    const ok = await confirm({
+      title: 'End Live Session?',
+      message: 'Are you sure you want to end this live session? All students will be disconnected immediately.',
+      type: 'danger',
+      confirmText: 'End Session',
+      cancelText: 'Stay Live'
+    });
+
+    if (ok) {
         try {
+          const loadingToast = toast.loading('Ending session...');
           const resultAction = await dispatch(endLiveClass({ id: roomID as string }));
           if (endLiveClass.fulfilled.match(resultAction)) {
+            toast.success('Session ended successfully', { id: loadingToast });
             router.push('/instructor/live-syncs');
+          } else {
+            toast.error('Failed to end session', { id: loadingToast });
           }
         } catch (err) {
           console.error("End session error:", err);
+          toast.error('An unexpected error occurred');
         }
     }
   };
@@ -233,6 +250,17 @@ const InstructorStudioPage: AuthenticatedPage = () => {
              </div>
           </aside>
         </div>
+        {/* Confirmation Modal */}
+        <CustomModal 
+          isOpen={isOpen}
+          onClose={handleCancel}
+          onConfirm={handleConfirm}
+          title={options?.title || ''}
+          message={options?.message || ''}
+          type={options?.type}
+          confirmText={options?.confirmText}
+          cancelText={options?.cancelText}
+        />
       </div>
     </DashboardLayout>
   );

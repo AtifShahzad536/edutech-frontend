@@ -12,9 +12,8 @@ import { useRouter } from 'next/router';
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
 import { fetchCourseById, updateCourse } from '@/store/slices/courseSlice';
 import { useEffect } from 'react';
+import apiClient from '@/config/apiClient';
 import axios from 'axios';
-import { AuthenticatedPage } from '@/types';
-import API_URL from '@/config/api';
 
 // Types
 interface Lesson {
@@ -237,13 +236,9 @@ const CourseBuilderPage: AuthenticatedPage = () => {
     if (!file) return;
 
     try {
-      const token = localStorage.getItem('token');
       // 1. Get signature from backend
-      const { data } = await axios.get(`${API_URL}/uploads/signature?folder=courses`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      const { signature, timestamp, apiKey, cloudName, folder } = data.data;
+      const response: any = await apiClient.get('/uploads/signature?folder=courses');
+      const { signature, timestamp, apiKey, cloudName, folder } = response.data;
 
       // 2. Prepare upload data
       const formData = new FormData();

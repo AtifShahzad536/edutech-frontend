@@ -1,18 +1,14 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { LiveClass, LiveClassState } from '@/types';
-import API_URL from '@/config/api';
+import apiClient from '@/config/apiClient';
 
 export const fetchLiveClasses = createAsyncThunk(
   'live/fetchLiveClasses',
   async (_, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/live`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const result = await response.json();
-      if (result.success) {
-        return result.data.map((lc: any) => ({
+      const response: any = await apiClient.get('/live');
+      if (response.success) {
+        return response.data.map((lc: any) => ({
           id: lc._id || lc.id,
           title: lc.title,
           instructorId: lc.instructor?._id,
@@ -26,9 +22,9 @@ export const fetchLiveClasses = createAsyncThunk(
           courseId: lc.course?._id || lc.course?.id || lc.course,
         }));
       }
-      return rejectWithValue(result.message);
+      return rejectWithValue(response.message);
     } catch (error: any) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error || 'Failed to fetch live classes');
     }
   }
 );
@@ -37,20 +33,11 @@ export const startLiveClass = createAsyncThunk(
   'live/startLiveClass',
   async (data: { courseId: string; title: string, description?: string }, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/live/start`, {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-      });
-      const result = await response.json();
-      if (result.success) return result.data;
-      return rejectWithValue(result.message);
+      const response: any = await apiClient.post('/live/start', data);
+      if (response.success) return response.data;
+      return rejectWithValue(response.message);
     } catch (error: any) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error || 'Failed to start live class');
     }
   }
 );
@@ -59,20 +46,11 @@ export const endLiveClass = createAsyncThunk(
   'live/endLiveClass',
   async (data: { id: string; recordingUrl?: string }, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/live/${data.id}/end`, {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ recordingUrl: data.recordingUrl })
-      });
-      const result = await response.json();
-      if (result.success) return result.data;
-      return rejectWithValue(result.message);
+      const response: any = await apiClient.post(`/live/${data.id}/end`, { recordingUrl: data.recordingUrl });
+      if (response.success) return response.data;
+      return rejectWithValue(response.message);
     } catch (error: any) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error || 'Failed to end live class');
     }
   }
 );
@@ -81,26 +59,11 @@ export const updateLiveClassStatus = createAsyncThunk(
   'live/updateLiveClassStatus',
   async (data: { id: string; status: string }, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('token');
-      console.log(`[LiveSync] Updating session ${data.id} to status: ${data.status}`);
-      const response = await fetch(`${API_URL}/live/${data.id}/status`, {
-        method: 'PATCH',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status: data.status })
-      });
-      const result = await response.json();
-      if (result.success) {
-        console.log(`[LiveSync] Successfully updated status on server for ${data.id}`);
-        return result.data;
-      }
-      console.error(`[LiveSync] Server returned error for ${data.id}: ${result.message}`);
-      return rejectWithValue(result.message);
+      const response: any = await apiClient.patch(`/live/${data.id}/status`, { status: data.status });
+      if (response.success) return response.data;
+      return rejectWithValue(response.message);
     } catch (error: any) {
-      console.error(`[LiveSync] Network error updating status for ${data.id}: ${error.message}`);
-      return rejectWithValue(error.message);
+      return rejectWithValue(error || 'Failed to update status');
     }
   }
 );
@@ -109,20 +72,11 @@ export const scheduleLiveClass = createAsyncThunk(
   'live/scheduleLiveClass',
   async (data: { courseId: string; title: string; module: string; scheduledFor: string }, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/live/schedule`, {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-      });
-      const result = await response.json();
-      if (result.success) return result.data;
-      return rejectWithValue(result.message);
+      const response: any = await apiClient.post('/live/schedule', data);
+      if (response.success) return response.data;
+      return rejectWithValue(response.message);
     } catch (error: any) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error || 'Failed to schedule live class');
     }
   }
 );
