@@ -47,42 +47,66 @@ const AdminUsersPage: AuthenticatedPage = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  React.useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const t = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/admin/users`, {
-          headers: { Authorization: `Bearer ${t}` }
-        });
-        const result = await response.json();
-        if (result.success) {
-          const mapped = result.data.map((u: any) => ({
-            id: u._id,
-            firstName: u.firstName,
-            lastName: u.lastName,
-            email: u.email,
-            role: u.role,
-            status: 'active', // Assuming active for simple sync
-            createdAt: new Date(u.createdAt).toISOString().split('T')[0],
-            lastLoginAt: u.updatedAt,
-            stability: 100
-          }));
-          setUsers(mapped);
-        }
-      } catch (error) {
-        console.error('Failed to fetch admin users:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const [platformStats, setPlatformStats] = useState<any>(null);
 
+  const fetchUsers = async () => {
+    try {
+      const t = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/admin/users`, {
+        headers: { Authorization: `Bearer ${t}` }
+      });
+      const result = await response.json();
+      if (result.success && result.data && result.data.users) {
+        const mapped = result.data.users.map((u: any) => ({
+          id: u._id,
+          firstName: u.firstName || 'User',
+          lastName: u.lastName || '',
+          email: u.email || 'No Email',
+          role: u.role || 'student',
+          status: 'active', 
+          createdAt: u.createdAt ? new Date(u.createdAt).toISOString().split('T')[0] : 'N/A',
+          lastLoginAt: u.updatedAt,
+          stability: Math.floor(Math.random() * 20) + 80 // Dynamic stability placeholder
+        }));
+        setUsers(mapped);
+      }
+    } catch (error) {
+      console.error('Failed to fetch admin users:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const t = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/admin/stats`, {
+        headers: { Authorization: `Bearer ${t}` }
+      });
+      const result = await response.json();
+      console.log('Stats Result:', result);
+      if (result.success && result.data && result.data.stats) {
+        setPlatformStats(result.data.stats);
+      }
+    } catch (error) {
+      console.error('Failed to fetch admin stats:', error);
+    }
+  };
+
+  React.useEffect(() => {
     fetchUsers();
+    fetchStats();
   }, []);
 
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch = user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredUsers = (users || []).filter((user) => {
+    const fName = (user.firstName || '').toLowerCase();
+    const lName = (user.lastName || '').toLowerCase();
+    const email = (user.email || '').toLowerCase();
+    const search = searchTerm.toLowerCase();
+
+    const matchesSearch = fName.includes(search) ||
+                         lName.includes(search) ||
+                         email.includes(search);
     const matchesRole = filterRole === 'all' || user.role === filterRole;
     const matchesStatus = filterStatus === 'all' || user.status === filterStatus;
     
@@ -115,9 +139,25 @@ const AdminUsersPage: AuthenticatedPage = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (userId: string) => {
+  const handleDelete = async (userId: string) => {
     if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-      setShowToast({ message: 'User deleted successfully', type: 'success' });
+      try {
+        const t = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/admin/users/${userId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${t}` }
+        });
+        const result = await res.json();
+        if (result.success) {
+          setUsers(users.filter(u => u.id !== userId));
+          setShowToast({ message: 'User deleted successfully', type: 'success' });
+          fetchStats(); // Update metrics
+        } else {
+          setShowToast({ message: result.message || 'Failed to delete user', type: 'error' });
+        }
+      } catch (error) {
+        setShowToast({ message: 'Network error', type: 'error' });
+      }
       setTimeout(() => setShowToast(null), 3000);
     }
   };
@@ -125,15 +165,38 @@ const AdminUsersPage: AuthenticatedPage = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    // Mock API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsSaving(false);
-    setIsModalOpen(false);
-    setShowToast({ 
-      message: `User ${isEditMode ? 'updated' : 'created'} successfully`, 
-      type: 'success' 
-    });
-    setTimeout(() => setShowToast(null), 3000);
+    try {
+      const t = localStorage.getItem('token');
+      const url = isEditMode ? `${API_URL}/admin/users/${selectedUser?.id}` : `${API_URL}/auth/register`;
+      const method = isEditMode ? 'PATCH' : 'POST';
+      
+      const res = await fetch(url, {
+        method,
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${t}` 
+        },
+        body: JSON.stringify(formData)
+      });
+      const result = await res.json();
+      
+      if (result.success) {
+        setIsModalOpen(false);
+        setShowToast({ 
+          message: `User ${isEditMode ? 'updated' : 'created'} successfully`, 
+          type: 'success' 
+        });
+        fetchUsers();
+        fetchStats();
+      } else {
+        setShowToast({ message: result.message || 'Operation failed', type: 'error' });
+      }
+    } catch (error) {
+      setShowToast({ message: 'Network error', type: 'error' });
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setShowToast(null), 3000);
+    }
   };
 
   return (
@@ -171,10 +234,10 @@ const AdminUsersPage: AuthenticatedPage = () => {
         {/* Platform Metrics */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { label: 'Total Users', value: '14,129', icon: FiUsers, color: 'indigo' },
-            { label: 'Instructors', value: '128', icon: FiShield, color: 'purple' },
-            { label: 'Courses', value: '842', icon: FiRadio, color: 'emerald' },
-            { label: 'Platform Status', value: 'Active', icon: FiActivity, color: 'cyan' },
+            { label: 'Total Users', value: platformStats?.totalUsers?.toLocaleString() || '0', icon: FiUsers, color: 'indigo' },
+            { label: 'Instructors', value: platformStats?.instructors?.toLocaleString() || '0', icon: FiShield, color: 'purple' },
+            { label: 'Courses', value: platformStats?.totalCourses?.toLocaleString() || '0', icon: FiRadio, color: 'emerald' },
+            { label: 'Growth Rate', value: platformStats?.growthRate || '0%', icon: FiActivity, color: 'cyan' },
           ].map((stat, i) => (
             <div key={i} className="group bg-white/5 rounded-2xl p-8 border border-white/5 shadow-2xl hover:bg-white/10 transition-all hover:-translate-y-1 relative overflow-hidden">
               <div className="flex items-center justify-between mb-6">
@@ -283,7 +346,11 @@ const AdminUsersPage: AuthenticatedPage = () => {
                         </div>
                       </td>
                       <td className="px-10 py-8">
-                        <div className="text-base font-black text-white tracking-tight leading-none">{user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : 'Inactive'}</div>
+                        <div className="text-base font-black text-white tracking-tight leading-none">
+                          {user.lastLoginAt && !isNaN(new Date(user.lastLoginAt).getTime()) 
+                            ? new Date(user.lastLoginAt).toLocaleDateString() 
+                            : 'Inactive'}
+                        </div>
                         <div className="text-[9px] font-black text-gray-600 uppercase tracking-widest mt-2 leading-none">Last Logged In</div>
                       </td>
                       <td className="px-10 py-8 text-right">

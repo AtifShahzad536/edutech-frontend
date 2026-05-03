@@ -15,6 +15,7 @@ import clsx from 'clsx';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
+  title?: string;
   hideHeader?: boolean;
   hidePadding?: boolean;
 }
@@ -76,9 +77,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, hideHeader 
         return [
           { name: 'Dashboard', href: '/admin/dashboard', icon: FiShield },
           { name: 'Users', href: '/admin/users', icon: FiUsers },
-          { name: 'Live Classes', href: '/instructor/live-syncs', icon: FiVideo },
+          { name: 'Live Classes', href: '/admin/live-classes', icon: FiVideo },
           { name: 'Courses', href: '/admin/courses', icon: FiBookOpen },
-          { name: 'Assignments', href: '/instructor/assignments', icon: FiLayers },
+          { name: 'Assignments', href: '/admin/assignments', icon: FiLayers },
           { name: 'Payments', href: '/admin/payments', icon: FiDollarSign },
           { name: 'Reports', href: '/admin/reports', icon: FiBarChart2 },
           { name: 'Settings', href: '/admin/settings', icon: FiSettings },

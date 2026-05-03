@@ -91,7 +91,7 @@ const CoursesPage: React.FC = () => {
 
         if (data.success) {
           setCourses(data.data || []);
-          setTotalCourses(data.total || 0);
+          setTotalCourses(data.meta?.total || data.total || 0);
         } else {
           setError('Failed to load courses.');
         }

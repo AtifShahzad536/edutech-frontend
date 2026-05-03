@@ -35,11 +35,11 @@ const AdminDashboard: AuthenticatedPage = () => {
           headers: { Authorization: `Bearer ${t}` }
         });
         const result = await response.json();
-        if (result.success) {
-          setStats(result.stats);
-          setRecentUsers(result.recentUsers);
-          if (result.revenueHistory) {
-             setRevenueData(result.revenueHistory);
+        if (result.success && result.data) {
+          setStats(result.data.stats);
+          setRecentUsers(result.data.recentUsers);
+          if (result.data.revenueHistory) {
+             setRevenueData(result.data.revenueHistory);
           }
         }
       } catch (error) {
@@ -157,9 +157,9 @@ const AdminDashboard: AuthenticatedPage = () => {
   
               <div className="flex-1 space-y-4">
                 {[
-                  { label: 'Total Revenue', value: '$72,400', color: 'bg-emerald-500' },
-                  { label: 'New Students', value: '+128', color: 'bg-indigo-500' },
-                  { label: 'Success Rate', value: '94%', color: 'bg-cyan-400' },
+                  { label: 'Total Revenue', value: `$${(stats?.totalRevenue || 0).toLocaleString()}`, color: 'bg-emerald-500' },
+                  { label: 'Enrollments', value: (stats?.totalEnrollments || 0).toLocaleString(), color: 'bg-indigo-500' },
+                  { label: 'Completion Rate', value: (stats?.avgCompletionRate || 0) + '%', color: 'bg-cyan-400' },
                 ].map((s, i) => (
                   <div key={i} className="group/item relative bg-black/40 border border-white/5 rounded-2xl p-4 md:p-5 hover:bg-white/5 transition-all shadow-lg">
                     <div className="flex items-center justify-between relative z-10">
@@ -200,7 +200,7 @@ const AdminDashboard: AuthenticatedPage = () => {
             </div>
  
             <div className="space-y-4">
-              {recentUsers.map((user) => (
+              {(recentUsers || []).map((user) => (
                 <div key={user.id} className="group/node relative bg-black/40 border border-white/5 rounded-2xl p-4 md:p-5 hover:bg-white/5 transition-all flex items-center justify-between cursor-pointer shadow-lg">
                    <div className="flex items-center space-x-5 relative z-10">
                       <div className="relative">

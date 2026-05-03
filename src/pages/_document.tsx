@@ -25,10 +25,7 @@ export default function Document() {
         <meta name="theme-color" content="#4F46E5" />
         <meta name="msapplication-TileColor" content="#4F46E5" />
         
-        {/* Security Headers */}
-        <meta httpEquiv="X-Content-Type-Options" content="nosniff" />
-        <meta httpEquiv="X-Frame-Options" content="DENY" />
-        <meta httpEquiv="X-XSS-Protection" content="1; mode=block" />
+        {/* Security Headers (X-Frame-Options etc. are set as HTTP headers in next.config.js) */}
         <meta httpEquiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
         
         {/* Additional SEO Meta */}

@@ -17,7 +17,11 @@ export const useAuthSync = () => {
       
       if (storedToken && storedUser) {
         try {
-          const parsedUser = JSON.parse(storedUser);
+          let parsedUser = JSON.parse(storedUser);
+          // Defensive check: if the user object is nested, unwrap it
+          if (parsedUser && parsedUser.user) {
+            parsedUser = parsedUser.user;
+          }
           dispatch(setUser(parsedUser));
           dispatch(setToken(storedToken));
         } catch (error) {

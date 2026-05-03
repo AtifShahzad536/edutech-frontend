@@ -7,6 +7,8 @@ import { useRouter } from 'next/router';
 import { AuthenticatedPage } from '@/types';
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
 import { fetchCourses, deleteCourse } from '@/store/slices/courseSlice';
+import ConfirmationModal from '@/components/ui/ConfirmationModal';
+import toast from 'react-hot-toast';
 
 interface CourseNode {
   id: string;
@@ -36,6 +38,10 @@ const TeacherCoursesPage: AuthenticatedPage = () => {
 
   const [courses, setCourses] = useState<any[]>([]);
   const { isInitialized, token } = useAppSelector(state => state.auth);
+
+  // Delete Modal State
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: '', title: '' });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const fetchInstructorCourses = async () => {
@@ -86,12 +92,28 @@ const TeacherCoursesPage: AuthenticatedPage = () => {
       });
       const result = await response.json();
       if (result.success) {
-        alert('Course is now LIVE for all students!');
+        toast.success('Course is now LIVE for all students!');
         // Update local state
         setCourses(courses.map(c => c.id === courseId ? { ...c, status: 'active' } : c));
       }
     } catch (error) {
       console.error('Failed to publish course:', error);
+      toast.error('Failed to publish course');
+    }
+  };
+
+  const confirmDeleteCourse = async () => {
+    const { id } = deleteModal;
+    setIsDeleting(true);
+    try {
+      await dispatch(deleteCourse(id)).unwrap();
+      setCourses(courses.filter(c => c.id !== id));
+      toast.success("Course Deleted Successfully");
+      setDeleteModal({ isOpen: false, id: '', title: '' });
+    } catch (error) {
+      toast.error("Failed to delete course");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -315,7 +337,7 @@ const TeacherCoursesPage: AuthenticatedPage = () => {
                           <FiEdit className="h-4 w-4" />
                         </button>
                         <button 
-                          onClick={() => { if(confirm('Are you sure you want to delete this course?')) dispatch(deleteCourse(course.id)) }} 
+                          onClick={() => setDeleteModal({ isOpen: true, id: course.id, title: course.title })} 
                           title="Delete Course"
                           className="p-2.5 rounded-lg active:scale-90 bg-white/5 hover:bg-rose-500/10 text-gray-500 hover:text-rose-500 transition-all border border-transparent"
                         >
@@ -364,6 +386,14 @@ const TeacherCoursesPage: AuthenticatedPage = () => {
             />
           </div>
         )}
+        <ConfirmationModal 
+          isOpen={deleteModal.isOpen}
+          onClose={() => setDeleteModal({ isOpen: false, id: '', title: '' })}
+          onConfirm={confirmDeleteCourse}
+          title="Delete Course"
+          message={`Are you sure you want to delete "${deleteModal.title}"? This will permanently remove the course and all associated lessons. This action cannot be undone.`}
+          isLoading={isDeleting}
+        />
       </div>
     </DashboardLayout>
   );

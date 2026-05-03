@@ -7,9 +7,18 @@ export interface User {
   role: 'student' | 'instructor' | 'admin';
   avatar?: string;
   bio?: string;
+  title?: string;
   location?: string;
   website?: string;
   linkedin?: string;
+  twitter?: string;
+  skills?: string[];
+  settings?: {
+    emailAlerts: boolean;
+    studentEnrollment: boolean;
+    courseMilestones: boolean;
+    platformUpdates: boolean;
+  };
   enrolledCourses?: any[];
   createdAt: string;
   updatedAt: string;

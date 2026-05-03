@@ -15,20 +15,21 @@ import { useAppSelector } from '@/hooks/useRedux';
 const TeacherDashboard: AuthenticatedPage = () => {
   const router = useRouter();
   const [stats, setStats] = React.useState<any>(null);
+  const [activeTab, setActiveTab] = React.useState<'revenue' | 'students'>('revenue');
   const [recentActivity, setRecentActivity] = React.useState<any[]>([]);
   const [activeCourses, setActiveCourses] = React.useState<any[]>([]);
   const [coursesLoading, setCoursesLoading] = React.useState(true);
   const { isInitialized, token } = useAppSelector(state => state.auth);
 
-  // Analytics data (Still mock for now as we don't have monthly aggregation yet)
-  const revenueData = [
-    { month: 'Jan', revenue: 8500 },
-    { month: 'Feb', revenue: 9200 },
-    { month: 'Mar', revenue: 10100 },
-    { month: 'Apr', revenue: 12450 },
-    { month: 'May', revenue: 11200 },
-    { month: 'Jun', revenue: 13450 },
-  ];
+  // Analytics data (Now using data from backend)
+  const [chartData, setChartData] = React.useState<any[]>([
+    { month: 'Jan', revenue: 0, students: 0 },
+    { month: 'Feb', revenue: 0, students: 0 },
+    { month: 'Mar', revenue: 0, students: 0 },
+    { month: 'Apr', revenue: 0, students: 0 },
+    { month: 'May', revenue: 0, students: 0 },
+    { month: 'Jun', revenue: 0, students: 0 },
+  ]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -38,9 +39,12 @@ const TeacherDashboard: AuthenticatedPage = () => {
           headers: { Authorization: `Bearer ${token}` }
         });
         const statsData = await statsRes.json();
-        if (statsData.success) {
-          setStats(statsData.stats);
-          setRecentActivity(statsData.recentSubmissions.map((s: any) => ({
+        if (statsData.success && statsData.data) {
+          setStats(statsData.data.stats);
+          if (statsData.data.analyticsHistory) {
+            setChartData(statsData.data.analyticsHistory);
+          }
+          setRecentActivity((statsData.data.recentSubmissions || []).map((s: any) => ({
             type: 'submission',
             message: `New submission: ${s.studentName} for ${s.assignmentTitle}`,
             time: s.submittedAt,
@@ -101,7 +105,7 @@ const TeacherDashboard: AuthenticatedPage = () => {
             </h1>
             
             <p className="text-sm md:text-base text-gray-400 max-w-xl mx-auto xl:mx-0 font-medium leading-relaxed">
-              Your courses are performing well with <span className="text-emerald-400">98% engagement</span>. Manage your curriculum and engage with your students.
+              Your courses are performing well with <span className="text-emerald-400">{stats?.engagement || 0}% engagement</span>. Manage your curriculum and engage with your students.
             </p>
  
             <div className="flex flex-wrap items-center justify-center xl:justify-start gap-4">
@@ -132,10 +136,10 @@ const TeacherDashboard: AuthenticatedPage = () => {
                 <div>
                   <div className="flex justify-between items-end mb-2">
                     <span className="text-sm font-bold text-white uppercase tracking-tight">Engagement</span>
-                    <span className="text-[10px] font-bold text-emerald-400 tracking-wider">92%</span>
+                    <span className="text-[10px] font-bold text-emerald-400 tracking-wider">{stats?.engagement || 0}%</span>
                   </div>
                   <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/5 p-0.5">
-                    <div className="h-full bg-emerald-500 rounded-full transition-all duration-[2s]" style={{ width: '92%' }} />
+                    <div className="h-full bg-emerald-500 rounded-full transition-all duration-[2s]" style={{ width: `${stats?.engagement || 0}%` }} />
                   </div>
                 </div>
                 
@@ -180,24 +184,42 @@ const TeacherDashboard: AuthenticatedPage = () => {
 
         {/* Charts & Activity */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Revenue Chart */}
+          {/* Revenue & Student Chart */}
           <div className="lg:col-span-2 bg-white/5 border border-white/5 rounded-3xl p-8 shadow-2xl">
             <div className="flex items-center justify-between mb-10">
               <div>
-                <h2 className="text-xl font-bold text-white uppercase tracking-tight">Revenue Insights</h2>
-                <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Last 6 months performance</span>
+                <h2 className="text-xl font-bold text-white uppercase tracking-tight">
+                  {activeTab === 'revenue' ? 'Revenue Insights' : 'Student Growth'}
+                </h2>
+                <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">
+                  {activeTab === 'revenue' ? 'Last 6 months performance' : 'Monthly enrollment data'}
+                </span>
               </div>
               <div className="hidden sm:flex items-center gap-2 bg-black/40 rounded-xl p-1 border border-white/5">
-                <button className="px-5 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 text-[9px] font-bold uppercase tracking-widest transition-all">Revenue</button>
-                <button className="px-5 py-2 rounded-lg text-gray-500 hover:text-white text-[9px] font-bold uppercase tracking-widest transition-all">Students</button>
+                <button 
+                  onClick={() => setActiveTab('revenue')}
+                  className={`px-5 py-2 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all ${
+                    activeTab === 'revenue' ? 'bg-emerald-500/10 text-emerald-400' : 'text-gray-500 hover:text-white'
+                  }`}
+                >
+                  Revenue
+                </button>
+                <button 
+                  onClick={() => setActiveTab('students')}
+                  className={`px-5 py-2 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all ${
+                    activeTab === 'students' ? 'bg-indigo-500/10 text-indigo-400' : 'text-gray-500 hover:text-white'
+                  }`}
+                >
+                  Students
+                </button>
               </div>
             </div>
             <div className="h-64 sm:h-80">
               <ChartLine 
-                data={revenueData}
+                data={chartData}
                 xKey="month"
-                yKey="revenue"
-                color="#10b981"
+                yKey={activeTab}
+                color={activeTab === 'revenue' ? '#10b981' : '#6366f1'}
               />
             </div>
           </div>

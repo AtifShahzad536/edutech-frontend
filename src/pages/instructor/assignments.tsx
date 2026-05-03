@@ -5,7 +5,7 @@ import {
   FiTrendingUp, FiVideo, FiArrowRight, 
   FiCheckCircle, FiPlusCircle, FiAlertCircle,
   FiSearch, FiFilter, FiMoreVertical, FiEdit3, FiTrash2, FiUsers,
-  FiX, FiActivity
+  FiX, FiActivity, FiDownload
 } from 'react-icons/fi';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Button from '@/components/ui/Button';
@@ -13,9 +13,11 @@ import Input from '@/components/ui/Input';
 import { useAppSelector, useAppDispatch } from '@/hooks/useRedux';
 import { selectAssignments } from '@/store';
 import { addAssignment } from '@/store/slices/assignmentSlice';
+import ConfirmationModal from '@/components/ui/ConfirmationModal';
 import { AuthenticatedPage } from '@/types';
 import clsx from 'clsx';
 import API_URL from '@/config/api';
+import toast from 'react-hot-toast';
 
 const InstructorAssignmentsPage: AuthenticatedPage = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -58,6 +60,10 @@ const InstructorAssignmentsPage: AuthenticatedPage = () => {
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
   const [gradingData, setGradingData] = useState({ submissionId: '', grade: 0, feedback: '' });
+  
+  // Delete Modal State
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: '', title: '' });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -168,7 +174,7 @@ const InstructorAssignmentsPage: AuthenticatedPage = () => {
           title: newAssignment.title,
           description: newAssignment.description,
           course: newAssignment.courseId,
-          dueDate: newAssignment.dueDate,
+          dueDate: newAssignment.dueDate ? new Date(newAssignment.dueDate).toISOString() : undefined,
           totalPoints: 100,
           attachments: newAssignment.attachments
         })
@@ -209,11 +215,13 @@ const InstructorAssignmentsPage: AuthenticatedPage = () => {
           difficulty: 'Intermediate',
           attachments: []
         });
-        alert("Assignment Published Successfully!");
+        toast.success("Assignment Published Successfully!");
+      } else {
+        toast.error(result.message || "Failed to publish assignment. Check your inputs.");
       }
     } catch (error) {
       console.error('Failed to create assignment:', error);
-      alert("Error publishing assignment. Please try again.");
+      toast.error("Error publishing assignment. Please try again.");
     }
   };
 
@@ -257,7 +265,7 @@ const InstructorAssignmentsPage: AuthenticatedPage = () => {
           title: editingAssignment.title,
           description: editingAssignment.description,
           course: editingAssignment.courseId,
-          dueDate: editingAssignment.dueDate,
+          dueDate: editingAssignment.dueDate ? new Date(editingAssignment.dueDate).toISOString() : undefined,
           difficulty: editingAssignment.difficulty,
           totalPoints: 100,
           attachments: editingAssignment.attachments
@@ -282,21 +290,24 @@ const InstructorAssignmentsPage: AuthenticatedPage = () => {
             } : a
           ));
           setShowEditModal(false);
-          alert("Assignment Updated Successfully!");
+          toast.success("Assignment Updated Successfully!");
         }
       } else {
-         alert("Error updating assignment.");
+         toast.error("Error updating assignment.");
       }
     } catch (error) {
       console.error('Failed to update assignment:', error);
-      alert("Network error updating assignment.");
+      toast.error("Network error updating assignment.");
     }
   };
 
-  const handleDeleteAssignment = async (id: string, title: string) => {
-    if (!window.confirm(`Are you sure you want to delete "${title}"? This cannot be undone and will delete all student submissions.`)) {
-      return;
-    }
+  const handleDeleteAssignment = (id: string, title: string) => {
+    setDeleteModal({ isOpen: true, id, title });
+  };
+
+  const confirmDeleteAssignment = async () => {
+    const { id } = deleteModal;
+    setIsDeleting(true);
     try {
       const t = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/assignments/${id}`, {
@@ -306,11 +317,15 @@ const InstructorAssignmentsPage: AuthenticatedPage = () => {
 
       if (response.ok) {
         setAssignments(assignments.filter(a => a.id !== id));
+        toast.success("Assignment Deleted.");
+        setDeleteModal({ isOpen: false, id: '', title: '' });
       } else {
-        alert("Failed to delete assignment.");
+        toast.error("Failed to delete assignment.");
       }
     } catch (error) {
       console.error("Failed to delete assignment:", error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -352,7 +367,7 @@ const InstructorAssignmentsPage: AuthenticatedPage = () => {
 
       const result = await response.json();
       if (result.success) {
-        alert("Grade Published!");
+        toast.success("Grade Published!");
         // Update local submissions state
         setSubmissions(submissions.map(s => s._id === gradingData.submissionId ? { ...s, status: 'graded', grade: gradingData.grade, feedback: gradingData.feedback } : s));
         setGradingData({ submissionId: '', grade: 0, feedback: '' });
@@ -361,6 +376,9 @@ const InstructorAssignmentsPage: AuthenticatedPage = () => {
       console.error('Failed to grade submission:', error);
     }
   };
+
+  const completedCount = assignments.filter(a => a.submissions >= a.totalStudents && a.totalStudents > 0).length;
+  const pendingCount = assignments.filter(a => a.submissions < a.totalStudents || a.totalStudents === 0).length;
 
   const filteredAssignments = assignments.filter(a => 
     a.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -415,11 +433,11 @@ const InstructorAssignmentsPage: AuthenticatedPage = () => {
            <div className="flex items-center gap-4 w-full lg:w-auto">
              <div className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-white/5 border border-white/5 rounded-xl px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                 <FiCheckCircle className="text-emerald-400" />
-                <span>24 Completed</span>
+                <span>{completedCount} Completed</span>
              </div>
              <div className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-white/5 border border-white/5 rounded-xl px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                 <FiClock className="text-amber-400" />
-                <span>12 Pending</span>
+                <span>{pendingCount} Pending</span>
              </div>
            </div>
         </div>
@@ -512,6 +530,124 @@ const InstructorAssignmentsPage: AuthenticatedPage = () => {
               </table>
             </div>
         </div>
+
+        {/* Submissions Modal */}
+        {showSubmissionsModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setShowSubmissionsModal(false)} />
+            
+            <div className="relative w-full max-w-4xl bg-gray-950 border border-white/10 rounded-[2rem] p-8 md:p-12 shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto custom-scrollbar">
+               <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-600/10 rounded-full blur-[100px] -mr-48 -mt-48" />
+               
+               <div className="flex items-center justify-between mb-10">
+                  <div className="space-y-1">
+                    <h2 className="text-2xl font-black text-white uppercase tracking-tight">Student Submissions</h2>
+                    <p className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">{selectedAssignment?.title} — {submissions.length} total</p>
+                  </div>
+                  <button onClick={() => setShowSubmissionsModal(false)} className="w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-all">
+                    <FiPlus className="rotate-45 h-6 w-6" />
+                  </button>
+               </div>
+
+               {loadingSubmissions ? (
+                 <div className="py-20 flex justify-center">
+                    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-indigo-500" />
+                 </div>
+               ) : submissions.length === 0 ? (
+                 <div className="py-20 text-center space-y-4">
+                    <FiLayers className="h-12 w-12 text-gray-900 mx-auto" />
+                    <p className="text-[10px] font-bold text-gray-700 uppercase tracking-widest">No submissions yet</p>
+                 </div>
+               ) : (
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {submissions.map((sub) => (
+                      <div key={sub._id} className="bg-white/5 border border-white/5 rounded-2xl p-6 space-y-4 hover:border-indigo-500/20 transition-all group">
+                         <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                               <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold">
+                                  {sub.studentId?.firstName?.[0]}{sub.studentId?.lastName?.[0]}
+                               </div>
+                               <div>
+                                  <h4 className="text-xs font-bold text-white uppercase tracking-tight">{sub.studentId?.firstName} {sub.studentId?.lastName}</h4>
+                                  <p className="text-[8px] font-bold text-gray-600 uppercase">{new Date(sub.createdAt).toLocaleDateString()}</p>
+                               </div>
+                            </div>
+                            <span className={clsx(
+                               "text-[8px] font-black px-2 py-0.5 rounded-md border tracking-widest uppercase",
+                               sub.status === 'graded' ? "text-emerald-400 bg-emerald-400/10 border-emerald-400/20" : "text-amber-400 bg-amber-400/10 border-amber-400/20"
+                            )}>
+                               {sub.status}
+                            </span>
+                         </div>
+                         
+                         <p className="text-[10px] text-gray-400 line-clamp-2">{sub.content}</p>
+                         
+                         {sub.attachments && sub.attachments.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                               {sub.attachments.map((file: any, i: number) => (
+                                 <a key={i} href={file.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-black/20 border border-white/5 px-3 py-1.5 rounded-lg text-[8px] font-bold text-gray-500 hover:text-white transition-all uppercase tracking-widest">
+                                    <FiFileText className="h-3 w-3" />
+                                    <span>File {i + 1}</span>
+                                 </a>
+                               ))}
+                            </div>
+                         )}
+
+                         {/* Grading UI */}
+                         <div className="pt-4 border-t border-white/5">
+                            {gradingData.submissionId === sub._id ? (
+                               <form onSubmit={handleGradeSubmission} className="space-y-4">
+                                  <div className="grid grid-cols-2 gap-4">
+                                     <Input 
+                                       label="Grade (0-100)"
+                                       type="number"
+                                       value={gradingData.grade}
+                                       onChange={(e) => setGradingData({...gradingData, grade: parseInt(e.target.value)})}
+                                       max={100}
+                                       min={0}
+                                       className="!bg-black/20 !py-2"
+                                     />
+                                  </div>
+                                  <div className="space-y-2">
+                                     <label className="text-[8px] font-bold text-gray-600 uppercase tracking-widest px-1">Feedback</label>
+                                     <textarea 
+                                       className="w-full bg-black/20 border border-white/5 rounded-xl px-4 py-3 text-[10px] text-white focus:border-indigo-500/30 transition-all min-h-[60px]"
+                                       value={gradingData.feedback}
+                                       onChange={(e) => setGradingData({...gradingData, feedback: e.target.value})}
+                                       placeholder="Technical feedback..."
+                                     />
+                                  </div>
+                                  <div className="flex gap-2">
+                                     <Button type="submit" size="sm" className="flex-1 text-[8px] py-2">Publish</Button>
+                                     <Button type="button" variant="ghost" size="sm" onClick={() => setGradingData({ submissionId: '', grade: 0, feedback: '' })} className="flex-1 text-[8px] py-2">Cancel</Button>
+                                  </div>
+                               </form>
+                            ) : sub.status === 'graded' ? (
+                               <div className="flex items-center justify-between">
+                                  <div className="space-y-1">
+                                     <p className="text-[8px] font-bold text-gray-600 uppercase tracking-widest">Feedback Given</p>
+                                     <p className="text-[10px] text-emerald-400 font-medium italic">"{sub.feedback}"</p>
+                                  </div>
+                                  <div className="text-right">
+                                     <p className="text-[14px] font-black text-white">{sub.grade}<span className="text-[8px] text-gray-600">/100</span></p>
+                                  </div>
+                               </div>
+                            ) : (
+                               <Button 
+                                 onClick={() => setGradingData({ submissionId: sub._id, grade: 0, feedback: '' })}
+                                 className="w-full py-2 bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-600 hover:text-white text-[8px] font-bold uppercase tracking-widest transition-all"
+                               >
+                                  Grade Submission
+                               </Button>
+                            )}
+                         </div>
+                      </div>
+                    ))}
+                 </div>
+               )}
+            </div>
+          </div>
+        )}
 
         {/* Create Assignment Modal */}
         {showCreateModal && (
@@ -879,14 +1015,31 @@ const InstructorAssignmentsPage: AuthenticatedPage = () => {
                                      <div className="flex items-center gap-3">
                                         <div className="px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-[9px] font-black uppercase text-indigo-400 tracking-widest">DEPLOYED LINK</div>
                                      </div>
-                                     <a 
-                                      href={sub.content.startsWith('http') ? sub.content : '#'} 
-                                      target="_blank" 
-                                      rel="noreferrer"
-                                      className="block text-indigo-400 hover:text-indigo-300 font-medium break-all text-sm underline decoration-indigo-500/30 underline-offset-4"
-                                     >
-                                        {sub.content}
-                                     </a>
+                                     {sub.content.startsWith('http') ? (
+                                       <a 
+                                        href={sub.content} 
+                                        target="_blank" 
+                                        rel="noreferrer"
+                                        className="block text-indigo-400 hover:text-indigo-300 font-medium break-all text-sm underline decoration-indigo-500/30 underline-offset-4"
+                                       >
+                                          {sub.content}
+                                       </a>
+                                     ) : (
+                                       <div className="space-y-3">
+                                         <p className="text-white font-medium text-sm">{sub.content}</p>
+                                         {sub.attachments && sub.attachments.length > 0 && (
+                                           <a 
+                                             href={sub.attachments[0]} 
+                                             target="_blank" 
+                                             rel="noreferrer"
+                                             className="inline-flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-xl text-xs font-bold text-white hover:bg-white/10 hover:border-indigo-500/30 transition-all group/file"
+                                           >
+                                             <FiDownload className="h-4 w-4 text-indigo-400 group-hover/file:scale-110 transition-transform" />
+                                             <span>Download Attachment</span>
+                                           </a>
+                                         )}
+                                       </div>
+                                     )}
                                      <p className="text-[9px] font-black text-gray-600 uppercase tracking-widest">Submitted At: {new Date(sub.submittedAt).toLocaleString()}</p>
                                   </div>
                                </div>
@@ -933,6 +1086,15 @@ const InstructorAssignmentsPage: AuthenticatedPage = () => {
             </div>
           </div>
         )}
+
+        <ConfirmationModal 
+          isOpen={deleteModal.isOpen}
+          onClose={() => setDeleteModal({ isOpen: false, id: '', title: '' })}
+          onConfirm={confirmDeleteAssignment}
+          title="Delete Assignment"
+          message={`Are you sure you want to delete "${deleteModal.title}"? This will permanently remove all student submissions and records for this task. This action cannot be undone.`}
+          isLoading={isDeleting}
+        />
 
       </div>
     </DashboardLayout>

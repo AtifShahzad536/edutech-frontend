@@ -64,13 +64,31 @@ export const updateUserProfile = createAsyncThunk(
   async (userData: any, { rejectWithValue }) => {
     try {
       const response: any = await apiClient.patch('/users/profile', userData);
-      const user = response.data;
+      // Backend returns { success: true, data: { user: { ... } } }
+      // apiClient response interceptor returns response.data
+      const user = response.data.user || response.data;
       if (typeof window !== 'undefined') {
         localStorage.setItem('user', JSON.stringify(user));
       }
-      return user;
+      return { user }; // Return wrapped to match extraReducers expectation
     } catch (error: any) {
       return rejectWithValue(error || 'Update failed');
+    }
+  }
+);
+
+export const updateUserSettings = createAsyncThunk(
+  'auth/updateSettings',
+  async (settings: any, { rejectWithValue }) => {
+    try {
+      const response: any = await apiClient.patch('/users/profile/settings', settings);
+      const user = response.data.user || response.data;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('user', JSON.stringify(user));
+      }
+      return { user };
+    } catch (error: any) {
+      return rejectWithValue(error || 'Settings update failed');
     }
   }
 );
@@ -83,7 +101,7 @@ export const initializeAuth = createAsyncThunk(
       if (!token) return null;
 
       const response: any = await apiClient.get('/auth/me');
-      const user = response.data;
+      const user = response.data.user || response.data;
       if (typeof window !== 'undefined') {
         localStorage.setItem('user', JSON.stringify(user));
       }
@@ -110,7 +128,7 @@ export const refreshUser = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response: any = await apiClient.get('/auth/me');
-      const user = response.data;
+      const user = response.data.user || response.data;
       if (typeof window !== 'undefined') {
         localStorage.setItem('user', JSON.stringify(user));
       }
@@ -203,12 +221,16 @@ const authSlice = createSlice({
       })
       .addCase(updateUserProfile.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.user = action.payload.user;
+        state.user = action.payload.user || action.payload; // Support both nested and direct objects
         state.error = null;
       })
       .addCase(updateUserProfile.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string || 'Update failed';
+      })
+      // Update Settings
+      .addCase(updateUserSettings.fulfilled, (state, action) => {
+        state.user = action.payload.user;
       })
       // Logout
       .addCase(logoutUser.fulfilled, (state) => {

@@ -32,18 +32,27 @@ const BrowseCoursesPage: AuthenticatedPage = () => {
   }, [dispatch]);
 
   const availableCourses = useMemo(() => {
-    return fetchedCourses.map(c => ({
-      id: c._id || c.id,
-      title: c.title,
-      description: c.description || '',
-      thumbnail: c.thumbnail || '',
-      instructor: c.instructor?.firstName ? `${c.instructor.firstName} ${c.instructor.lastName}` : 'System Admin',
-      category: c.category?.toLowerCase() || 'programming',
-      difficulty: c.level ? c.level.charAt(0).toUpperCase() + c.level.slice(1) : 'Beginner',
-      students: c.studentsCount || 0,
-      rating: c.rating || 0,
-      price: c.price ? `$${c.price.toFixed(2)}` : 'Free'
-    }));
+    return fetchedCourses.map(c => {
+      // API populates instructor data under `instructorId` (the actual DB field)
+      // The virtual `instructor` field may also be present in some responses
+      const instructorObj = c.instructorId || c.instructor;
+      const instructorName = instructorObj?.firstName
+        ? `${instructorObj.firstName} ${instructorObj.lastName}`.trim()
+        : 'Expert Instructor';
+
+      return {
+        id: c._id || c.id,
+        title: c.title,
+        description: c.description || '',
+        thumbnail: c.thumbnail || '',
+        instructor: instructorName,
+        category: c.category?.toLowerCase() || 'programming',
+        difficulty: c.level ? c.level.charAt(0).toUpperCase() + c.level.slice(1) : 'Beginner',
+        students: c.studentsCount || 0,
+        rating: c.rating || 0,
+        price: c.price ? `$${c.price.toFixed(2)}` : 'Free'
+      };
+    });
   }, [fetchedCourses]);
 
   const filteredCourses = availableCourses.filter(n => 

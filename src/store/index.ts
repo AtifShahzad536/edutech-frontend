@@ -5,6 +5,7 @@ import courseReducer from './slices/courseSlice';
 import uiReducer from './slices/uiSlice';
 import liveReducer from './slices/liveSlice';
 import assignmentReducer from './slices/assignmentSlice';
+import notificationReducer from './slices/notificationSlice';
 
 export const store = configureStore({
   reducer: {
@@ -13,6 +14,7 @@ export const store = configureStore({
     ui: uiReducer,
     live: liveReducer,
     assignments: assignmentReducer,
+    notifications: notificationReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
@@ -39,7 +41,8 @@ export const selectCoursesError = (state: RootState) => state.courses.error;
 
 export const selectSidebarOpen = (state: RootState) => state.ui.sidebarOpen;
 export const selectTheme = (state: RootState) => state.ui.theme;
-export const selectNotifications = (state: RootState) => state.ui.notifications;
+export const selectNotifications = (state: RootState) => state.notifications.notifications;
+export const selectNotificationsLoading = (state: RootState) => state.notifications.loading;
 
 export const selectLiveClasses = (state: RootState) => state.live.liveClasses;
 export const selectLiveClassById = (state: RootState, id: string) => state.live.liveClasses.find(lc => lc.id === id);

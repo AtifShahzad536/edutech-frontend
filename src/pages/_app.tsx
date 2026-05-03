@@ -25,6 +25,28 @@ function AppInner({ Component, pageProps }: CustomAppProps) {
   useAuthSync()
 
   useEffect(() => {
+    // Global fetch interceptor for maintenance mode
+    if (typeof window !== 'undefined') {
+      const originalFetch = window.fetch;
+      window.fetch = async function (...args) {
+        const response = await originalFetch.apply(this, args);
+        if (response.status === 503) {
+          const clone = response.clone();
+          try {
+            const data = await clone.json();
+            if (data.maintenanceMode && router.pathname !== '/maintenance') {
+              router.push('/maintenance');
+            }
+          } catch (e) {
+            // Ignore JSON parse errors
+          }
+        }
+        return response;
+      };
+    }
+  }, [router.pathname]);
+
+  useEffect(() => {
     // Initialize performance monitoring
     initializePerformanceMonitoring()
 

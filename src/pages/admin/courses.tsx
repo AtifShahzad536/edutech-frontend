@@ -46,37 +46,55 @@ const AdminCoursesPage: AuthenticatedPage = () => {
   const [courses, setCourses] = useState<AdminCourse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  React.useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        const t = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/courses`, {
-          headers: { Authorization: `Bearer ${t}` }
-        });
-        const result = await response.json();
-        if (result.success) {
-          const mapped = result.data.map((c: any) => ({
-            id: c._id,
-            title: c.title,
-            instructor: c.instructor?.firstName ? `${c.instructor.firstName} ${c.instructor.lastName}` : 'Unknown',
-            category: c.category || 'Development',
-            status: c.isPublished ? 'published' : 'pending',
-            students: c.studentsCount || 0,
-            rating: c.rating || 0,
-            price: c.price || 0,
-            revenue: (c.price || 0) * (c.studentsCount || 0),
-            lastUpdate: new Date(c.updatedAt).toISOString().split('T')[0]
-          }));
-          setCourses(mapped);
-        }
-      } catch (error) {
-        console.error('Failed to fetch admin courses:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const [platformStats, setPlatformStats] = useState<any>(null);
 
+  const fetchCourses = async () => {
+    try {
+      const t = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/admin/courses`, {
+        headers: { Authorization: `Bearer ${t}` }
+      });
+      const result = await response.json();
+      if (result.success && result.data) {
+        const mapped = result.data.map((c: any) => ({
+          id: c._id,
+          title: c.title || 'Untitled Course',
+          instructor: c.instructorId?.firstName ? `${c.instructorId.firstName} ${c.instructorId.lastName}` : 'System',
+          category: c.category || 'Uncategorized',
+          status: c.isPublished ? 'published' : 'pending',
+          students: c.studentsCount || 0,
+          rating: c.rating || 0,
+          price: c.price || 0,
+          revenue: (c.price || 0) * (c.studentsCount || 0),
+          lastUpdate: c.updatedAt ? new Date(c.updatedAt).toISOString().split('T')[0] : 'N/A'
+        }));
+        setCourses(mapped);
+      }
+    } catch (error) {
+      console.error('Failed to fetch admin courses:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const t = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/admin/stats`, {
+        headers: { Authorization: `Bearer ${t}` }
+      });
+      const result = await response.json();
+      if (result.success) {
+        setPlatformStats(result.data.stats);
+      }
+    } catch (error) {
+      console.error('Failed to fetch admin stats:', error);
+    }
+  };
+
+  React.useEffect(() => {
     fetchCourses();
+    fetchStats();
   }, []);
 
   const filteredCourses = courses.filter((course) => {
@@ -116,9 +134,25 @@ const AdminCoursesPage: AuthenticatedPage = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (courseId: string) => {
+  const handleDelete = async (courseId: string) => {
     if (confirm('Are you sure you want to delete this course? This action cannot be undone.')) {
-      setShowToast({ message: 'Course deleted successfully', type: 'success' });
+      try {
+        const t = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/courses/${courseId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${t}` }
+        });
+        const result = await res.json();
+        if (result.success) {
+          setCourses(courses.filter(c => c.id !== courseId));
+          setShowToast({ message: 'Course deleted successfully', type: 'success' });
+          fetchStats();
+        } else {
+          setShowToast({ message: result.message || 'Failed to delete course', type: 'error' });
+        }
+      } catch (error) {
+        setShowToast({ message: 'Network error', type: 'error' });
+      }
       setTimeout(() => setShowToast(null), 3000);
     }
   };
@@ -126,15 +160,41 @@ const AdminCoursesPage: AuthenticatedPage = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    // Mock API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsSaving(false);
-    setIsModalOpen(false);
-    setShowToast({ 
-      message: `Course ${isEditMode ? 'updated' : 'created'} successfully`, 
-      type: 'success' 
-    });
-    setTimeout(() => setShowToast(null), 3000);
+    try {
+      const t = localStorage.getItem('token');
+      const url = isEditMode ? `${API_URL}/courses/${selectedCourse?.id}` : `${API_URL}/courses`;
+      const method = isEditMode ? 'PUT' : 'POST';
+      
+      const res = await fetch(url, {
+        method,
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${t}` 
+        },
+        body: JSON.stringify({
+          ...formData,
+          isPublished: formData.status === 'published'
+        })
+      });
+      const result = await res.json();
+      
+      if (result.success) {
+        setIsModalOpen(false);
+        setShowToast({ 
+          message: `Course ${isEditMode ? 'updated' : 'created'} successfully`, 
+          type: 'success' 
+        });
+        fetchCourses();
+        fetchStats();
+      } else {
+        setShowToast({ message: result.message || 'Operation failed', type: 'error' });
+      }
+    } catch (error) {
+      setShowToast({ message: 'Network error', type: 'error' });
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setShowToast(null), 3000);
+    }
   };
 
   return (
@@ -161,30 +221,30 @@ const AdminCoursesPage: AuthenticatedPage = () => {
               </p>
             </div>
 
-            <div className="flex flex-col gap-4 w-full xl:w-[350px]">
-               <div className="group bg-white/5 border border-white/5 rounded-2xl p-8 hover:bg-white/10 transition-all hover:-translate-y-1 relative overflow-hidden active:scale-95 shadow-xl">
-                  <div className="flex flex-col items-start space-y-4">
-                    <div className="p-4 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                      <FiUsers className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <div className="text-3xl font-black text-white tracking-tight leading-none">278.4K</div>
-                      <div className="text-[9px] font-black text-gray-600 uppercase tracking-widest mt-2 leading-none">Total Active Students</div>
-                    </div>
-                  </div>
-               </div>
-               <div className="group bg-white/5 border border-white/5 rounded-2xl p-8 hover:bg-white/10 transition-all hover:-translate-y-1 relative overflow-hidden active:scale-95 shadow-xl">
-                  <div className="flex flex-col items-start space-y-4">
-                    <div className="p-4 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      <FiDollarSign className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <div className="text-3xl font-black text-emerald-500 tracking-tight leading-none">$2.54M</div>
-                      <div className="text-[9px] font-black text-gray-600 uppercase tracking-widest mt-2 leading-none">Gross Platform Revenue</div>
-                    </div>
-                  </div>
-               </div>
-            </div>
+             <div className="flex flex-col gap-4 w-full xl:w-[350px]">
+                <div className="group bg-white/5 border border-white/5 rounded-2xl p-8 hover:bg-white/10 transition-all hover:-translate-y-1 relative overflow-hidden active:scale-95 shadow-xl">
+                   <div className="flex flex-col items-start space-y-4">
+                     <div className="p-4 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                       <FiUsers className="h-5 w-5" />
+                     </div>
+                     <div>
+                       <div className="text-3xl font-black text-white tracking-tight leading-none">{platformStats?.students?.toLocaleString() || '0'}</div>
+                       <div className="text-[9px] font-black text-gray-600 uppercase tracking-widest mt-2 leading-none">Total Active Students</div>
+                     </div>
+                   </div>
+                </div>
+                <div className="group bg-white/5 border border-white/5 rounded-2xl p-8 hover:bg-white/10 transition-all hover:-translate-y-1 relative overflow-hidden active:scale-95 shadow-xl">
+                   <div className="flex flex-col items-start space-y-4">
+                     <div className="p-4 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                       <FiDollarSign className="h-5 w-5" />
+                     </div>
+                     <div>
+                       <div className="text-3xl font-black text-emerald-500 tracking-tight leading-none">${(platformStats?.totalRevenue || 0).toLocaleString()}</div>
+                       <div className="text-[9px] font-black text-gray-600 uppercase tracking-widest mt-2 leading-none">Gross Platform Revenue</div>
+                     </div>
+                   </div>
+                </div>
+             </div>
           </div>
         </div>
 

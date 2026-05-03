@@ -40,14 +40,14 @@ const PublicLayout = memo<PublicLayoutProps>(({ children }) => {
 
       {/* ── Navigation ─────────────────────────────────────────── */}
       <nav className="fixed top-0 w-full z-50 bg-gray-950/90 backdrop-blur-2xl border-b border-white/[0.06]">
-        <div className="max-w-[2560px] w-[98%] mx-auto px-6 lg:px-8">
-          <div className="flex items-center h-16 gap-6">
+        <div className="max-w-[2560px] w-full mx-auto px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
 
             {/* ── LEFT: Logo + Categories ── */}
             <div className="flex items-center gap-4 flex-shrink-0">
               {/* Logo */}
               <Link href="/" className="flex items-center group">
-                <img src="/logo.png" alt="EduTech Logo" className="h-10 w-auto object-contain transition-transform duration-500 group-hover:scale-105" />
+                <img src="/logo.png" alt="EduTech Logo" className="h-7 md:h-10 w-auto object-contain transition-transform duration-500 group-hover:scale-105" />
               </Link>
 
               {/* Divider */}
@@ -94,7 +94,7 @@ const PublicLayout = memo<PublicLayoutProps>(({ children }) => {
             {/* ── CENTRE: Search bar (centered) ── */}
             <div className="flex-1 hidden lg:flex items-center justify-center px-8">
               <div className="relative group w-full max-w-3xl">
-                <FiSearch className="absolute left-3.5 h-4 w-4 text-gray-600 group-focus-within:text-indigo-400 transition-colors z-10" />
+                <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 group-focus-within:text-indigo-400 transition-colors z-10" />
                 <input
                   type="text"
                   placeholder="Search for courses, skills, instructors..."
@@ -104,7 +104,7 @@ const PublicLayout = memo<PublicLayoutProps>(({ children }) => {
             </div>
 
             {/* ── RIGHT: Nav links + Auth ── */}
-            <div className="flex items-center gap-4 flex-shrink-0">
+            <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
               {/* Secondary links — visible on xl only to avoid crowding */}
               <div className="hidden xl:flex items-center gap-2">
                 {[
@@ -128,7 +128,7 @@ const PublicLayout = memo<PublicLayoutProps>(({ children }) => {
               {/* Auth */}
               {user ? (
                 <Link href={user.role === 'student' ? '/student/dashboard' : '/instructor/dashboard'}>
-                  <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-all shadow-md shadow-indigo-500/20 active:scale-95 whitespace-nowrap">
+                  <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] md:text-sm font-medium px-3 py-2 md:px-5 md:py-2.5 rounded-lg md:rounded-xl transition-all shadow-md shadow-indigo-500/20 active:scale-95 whitespace-nowrap">
                     Dashboard
                   </button>
                 </Link>
@@ -140,7 +140,7 @@ const PublicLayout = memo<PublicLayoutProps>(({ children }) => {
                     </button>
                   </Link>
                   <Link href="/signup">
-                    <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-all shadow-md shadow-indigo-500/20 active:scale-95 whitespace-nowrap">
+                    <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] md:text-sm font-medium px-3 py-2 md:px-5 md:py-2.5 rounded-lg md:rounded-xl transition-all shadow-md shadow-indigo-500/20 active:scale-95 whitespace-nowrap">
                       Join Free
                     </button>
                   </Link>
@@ -233,7 +233,7 @@ const PublicLayout = memo<PublicLayoutProps>(({ children }) => {
       <main className="flex-1 pt-16">{children}</main>
 
       <footer className="bg-gray-950 border-t border-white/5 pt-20 pb-10">
-        <div className="max-w-[2560px] w-[98%] mx-auto px-6 lg:px-8">
+        <div className="max-w-[2560px] w-full mx-auto px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 lg:gap-16 2xl:gap-24 mb-16">
             <div className="lg:col-span-2 space-y-5 max-w-xs">
               <Link href="/" className="flex items-center group">

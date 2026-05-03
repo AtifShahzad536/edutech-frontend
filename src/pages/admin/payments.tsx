@@ -6,6 +6,7 @@ import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Modal from '@/components/ui/Modal';
 import { AuthenticatedPage } from '@/types';
+import API_URL from '@/config/api';
 
 const AdminPaymentsPage: AuthenticatedPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,76 +30,58 @@ const AdminPaymentsPage: AuthenticatedPage = () => {
     { value: 'refunded', label: 'Refunded' }
   ];
 
-  const stats = {
-    totalRevenue: 2847563,
-    totalTransactions: 15680,
-    averageOrderValue: 181.47,
-    refundRate: 2.3,
-    growth: 15.2
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [paymentStats, setPaymentStats] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchPayments = async () => {
+    try {
+      const t = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/admin/payments?status=${selectedStatus}`, {
+        headers: { Authorization: `Bearer ${t}` }
+      });
+      const result = await response.json();
+      console.log('Payments result:', result);
+      if (result.success && result.data) {
+        const list = Array.isArray(result.data) ? result.data : [];
+        const mapped = list.map((p: any) => ({
+          id: p.transactionId || p._id,
+          date: p.createdAt,
+          customer: p.student ? `${p.student.firstName || ''} ${p.student.lastName || ''}`.trim() : 'Guest',
+          email: p.student?.email || 'N/A',
+          course: p.course?.title || 'Unknown Course',
+          amount: p.amount || 0,
+          status: p.status || 'completed',
+          paymentMethod: p.paymentMethod || 'Stripe'
+        }));
+        setTransactions(mapped);
+      }
+    } catch (error) {
+      console.error('Failed to fetch payments:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const transactions = useMemo(() => [
-    {
-      id: 'txn_1234567890',
-      date: '2024-03-10T14:30:00',
-      customer: 'Sarah Johnson',
-      email: 'sarah.j@example.com',
-      course: 'Complete Web Development Bootcamp',
-      amount: 89.99,
-      status: 'completed',
-      paymentMethod: 'Visa ending in 4242',
-      instructor: 'John Doe',
-      instructorPayout: 72.00
-    },
-    {
-      id: 'txn_1234567891',
-      date: '2024-03-10T12:15:00',
-      customer: 'Michael Chen',
-      email: 'michael.c@example.com',
-      course: 'Advanced React Patterns',
-      amount: 129.99,
-      status: 'completed',
-      paymentMethod: 'Mastercard ending in 8888',
-      instructor: 'Jane Smith',
-      instructorPayout: 104.00
-    },
-    {
-      id: 'txn_1234567892',
-      date: '2024-03-10T10:45:00',
-      customer: 'Emily Davis',
-      email: 'emily.d@example.com',
-      course: 'UI/UX Design Fundamentals',
-      amount: 79.99,
-      status: 'completed',
-      paymentMethod: 'PayPal',
-      instructor: 'Mike Johnson',
-      instructorPayout: 64.00
-    },
-    {
-      id: 'txn_1234567893',
-      date: '2024-03-09T16:20:00',
-      customer: 'Alex Kumar',
-      email: 'alex.k@example.com',
-      course: 'Complete Web Development Bootcamp',
-      amount: 89.99,
-      status: 'refunded',
-      paymentMethod: 'Visa ending in 1234',
-      instructor: 'John Doe',
-      instructorPayout: 0
-    },
-    {
-      id: 'txn_1234567894',
-      date: '2024-03-09T09:30:00',
-      customer: 'Lisa Wang',
-      email: 'lisa.w@example.com',
-      course: 'JavaScript Mastery',
-      amount: 99.99,
-      status: 'pending',
-      paymentMethod: 'Visa ending in 5678',
-      instructor: 'David Lee',
-      instructorPayout: 0
+  const fetchPaymentStats = async () => {
+    try {
+      const t = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/admin/payments/stats`, {
+        headers: { Authorization: `Bearer ${t}` }
+      });
+      const result = await response.json();
+      if (result.success) {
+        setPaymentStats(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch payment stats:', error);
     }
-  ], []);
+  };
+
+  React.useEffect(() => {
+    fetchPayments();
+    fetchPaymentStats();
+  }, [selectedStatus]);
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(txn => {
@@ -106,10 +89,9 @@ const AdminPaymentsPage: AuthenticatedPage = () => {
                            txn.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            txn.course.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            txn.id.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = selectedStatus === 'all' || txn.status === selectedStatus;
-      return matchesSearch && matchesStatus;
+      return matchesSearch;
     });
-  }, [transactions, searchTerm, selectedStatus]);
+  }, [transactions, searchTerm]);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -194,10 +176,10 @@ const AdminPaymentsPage: AuthenticatedPage = () => {
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { label: 'Total Revenue', value: formatCurrency(stats.totalRevenue), icon: FiDollarSign, color: 'emerald', trend: `+${stats.growth}%` },
-            { label: 'Transactions', value: stats.totalTransactions.toLocaleString(), icon: FiCreditCard, color: 'blue', trend: '+8.5%' },
-            { label: 'Avg Order Value', value: formatCurrency(stats.averageOrderValue), icon: FiTrendingUp, color: 'purple', trend: '+3.2%' },
-            { label: 'Refund Rate', value: `${stats.refundRate}%`, icon: FiUsers, color: 'rose', trend: '-0.5%' },
+            { label: 'Total Revenue', value: formatCurrency(paymentStats?.totalRevenue || 0), icon: FiDollarSign, color: 'emerald', trend: `+15.2%` },
+            { label: 'Transactions', value: (paymentStats?.totalTransactions || 0).toLocaleString(), icon: FiCreditCard, color: 'blue', trend: '+8.5%' },
+            { label: 'Avg Order Value', value: formatCurrency(paymentStats?.avgOrderValue || 0), icon: FiTrendingUp, color: 'purple', trend: '+3.2%' },
+            { label: 'Growth Rate', value: '14.5%', icon: FiUsers, color: 'rose', trend: '+0.5%' },
           ].map((stat, i) => (
             <div key={i} className="group bg-white/5 rounded-2xl p-8 border border-white/5 shadow-2xl hover:bg-white/10 transition-all hover:-translate-y-1 relative overflow-hidden">
               <div className="flex items-center justify-between mb-6">

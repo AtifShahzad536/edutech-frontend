@@ -7,7 +7,9 @@ import apiClient from '@/config/apiClient';
 export const fetchCourses = createAsyncThunk('courses/fetchCourses', async (_, { rejectWithValue }) => {
   try {
     const response: any = await apiClient.get('/courses');
-    return response.data;
+    // apiClient interceptor returns the full { success, data, meta } object
+    // We extract just the courses array from response.data
+    return Array.isArray(response.data) ? response.data : (response.data || response || []);
   } catch (error: any) {
     return rejectWithValue(error || 'Failed to fetch courses');
   }
@@ -18,7 +20,8 @@ export const fetchCourseById = createAsyncThunk(
   async (id: string, { rejectWithValue }) => {
     try {
       const response: any = await apiClient.get(`/courses/${id}`);
-      return response.data;
+      // Extract the single course object from the response wrapper
+      return response.data || response;
     } catch (error: any) {
       return rejectWithValue(error || 'Failed to fetch course');
     }
@@ -30,7 +33,8 @@ export const fetchInstructorCourses = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response: any = await apiClient.get('/instructor/courses');
-      return response.data;
+      // Extract the courses array from the response wrapper
+      return Array.isArray(response.data) ? response.data : (response.data || response || []);
     } catch (error: any) {
       return rejectWithValue(error || 'Failed to fetch instructor courses');
     }
@@ -45,6 +49,18 @@ export const createCourse = createAsyncThunk(
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error || 'Failed to create course');
+    }
+  }
+);
+
+export const deleteCourse = createAsyncThunk(
+  'courses/deleteCourse',
+  async (id: string, { rejectWithValue }) => {
+    try {
+      await apiClient.delete(`/courses/${id}`);
+      return id;
+    } catch (error: any) {
+      return rejectWithValue(error || 'Failed to delete course');
     }
   }
 );
@@ -68,9 +84,6 @@ const courseSlice = createSlice({
     },
     addCourse: (state, action: PayloadAction<Course>) => {
       state.courses.push(action.payload);
-    },
-    deleteCourse: (state, action: PayloadAction<string>) => {
-      state.courses = state.courses.filter(c => c.id !== action.payload);
     },
     updateCourse: (state, action: PayloadAction<Course>) => {
       const stateIndex = state.courses.findIndex(c => c.id === action.payload.id);
@@ -115,7 +128,8 @@ const courseSlice = createSlice({
       })
       .addCase(fetchCourses.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.courses = action.payload;
+        // Ensure we always store an array, never an object
+        state.courses = Array.isArray(action.payload) ? action.payload : [];
         state.error = null;
       })
       .addCase(fetchCourses.rejected, (state, action) => {
@@ -163,9 +177,23 @@ const courseSlice = createSlice({
       .addCase(fetchInstructorCourses.rejected, (state, action) => {
         state.isLoading = false;
         state.error = (action.payload as string) ||'Failed to fetch instructor courses';
+      })
+      // Delete course
+      .addCase(deleteCourse.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(deleteCourse.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.courses = state.courses.filter(c => c.id !== action.payload);
+        state.error = null;
+      })
+      .addCase(deleteCourse.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = (action.payload as string) || 'Failed to delete course';
       });
   },
 });
 
-export const { clearError, setCurrentCourse, clearCurrentCourse, addToCart, toggleWishlist, addCourse, deleteCourse, updateCourse, enrollCourse, clearCart } = courseSlice.actions;
+export const { clearError, setCurrentCourse, clearCurrentCourse, addToCart, toggleWishlist, addCourse, updateCourse, enrollCourse, clearCart } = courseSlice.actions;
 export default courseSlice.reducer;

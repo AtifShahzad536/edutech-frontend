@@ -18,7 +18,7 @@ const formatTimeAgo = (date: Date) => {
   return `${Math.floor(diffInSeconds / 86400)}d ago`;
 };
 
-const StudentNotificationsPage: AuthenticatedPage = () => {
+const InstructorNotificationsPage: AuthenticatedPage = () => {
   const dispatch = useAppDispatch();
   const { notifications = [], loading = false } = useAppSelector(state => state.notifications || {});
   const [filter, setFilter] = useState('all');
@@ -63,13 +63,13 @@ const StudentNotificationsPage: AuthenticatedPage = () => {
   const unreadCount = (notifications || []).filter(n => !n.isRead).length;
 
   return (
-    <DashboardLayout title="My Notifications">
+    <DashboardLayout title="Instructor Inbox">
       <div className="max-w-5xl mx-auto space-y-8 pb-20">
         
         {/* HEADER */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-1">
-            <h1 className="text-3xl font-black text-white tracking-tight">Notifications</h1>
+            <h1 className="text-3xl font-black text-white tracking-tight">Inbox</h1>
             <p className="text-sm text-gray-500 font-medium">You have {unreadCount} new messages</p>
           </div>
           
@@ -167,6 +167,6 @@ const StudentNotificationsPage: AuthenticatedPage = () => {
   );
 };
 
-StudentNotificationsPage.allowedRoles = ['student', 'instructor', 'admin'];
+InstructorNotificationsPage.allowedRoles = ['instructor'];
 
-export default StudentNotificationsPage;
+export default InstructorNotificationsPage;

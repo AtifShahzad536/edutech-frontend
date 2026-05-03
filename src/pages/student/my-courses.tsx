@@ -29,7 +29,9 @@ const MyCoursesPage: AuthenticatedPage = () => {
         
         if (response.success) {
           // Format data for CourseCard
-          const enrolled = (response.data.enrolledCourses || []).map((c: any) => ({
+          // After backend fix, enrolledCourses is at the top level of the response
+          const enrolledList = response.enrolledCourses || (response.data && response.data.enrolledCourses) || [];
+          const enrolled = enrolledList.map((c: any) => ({
             id: c.id || c._id,
             title: c.title,
             description: c.description || '',

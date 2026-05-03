@@ -75,7 +75,7 @@ const AssignmentSubmitPage: AuthenticatedPage = () => {
 
         const uploadResult = await uploadRes.json();
         if (uploadResult.success) {
-          finalContent = `File: ${uploadResult.originalName}`;
+          finalContent = `File: ${uploadResult.meta?.originalName || 'Uploaded Document'}`;
           finalAttachments = [uploadResult.data];
         } else {
           throw new Error(uploadResult.message || 'File upload failed');

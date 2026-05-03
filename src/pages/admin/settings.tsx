@@ -4,6 +4,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { AuthenticatedPage } from '@/types';
+import API_URL from '@/config/api';
 
 const AdminSettingsPage: AuthenticatedPage = () => {
   const [activeTab, setActiveTab] = useState('general');
@@ -39,12 +40,77 @@ const AdminSettingsPage: AuthenticatedPage = () => {
     marketingEmails: false
   });
 
+  React.useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const t = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/admin/settings`, {
+          headers: { Authorization: `Bearer ${t}` }
+        });
+        const result = await res.json();
+        if (result.success && result.data) {
+          const d = result.data;
+          setGeneralSettings({
+            siteName: d.siteName || 'Edutech Academy',
+            siteDescription: d.siteDescription || 'A premium learning platform for modern professionals.',
+            supportEmail: d.supportEmail || 'support@edutech.com',
+            timezone: d.timezone || 'UTC',
+            dateFormat: d.dateFormat || 'YYYY-MM-DD',
+            maintenanceMode: d.maintenanceMode || false
+          });
+          setPaymentSettings({
+            currency: d.currency || 'USD',
+            currencySymbol: d.currencySymbol || '$',
+            platformFee: d.platformFee || 20,
+            minPayout: d.minPayout || 50,
+            payoutSchedule: d.payoutSchedule || 'monthly',
+            stripeEnabled: d.stripeEnabled ?? true,
+            paypalEnabled: d.paypalEnabled ?? true
+          });
+          setEmailSettings({
+            smtpHost: d.smtpHost || 'smtp.edutech.com',
+            smtpPort: d.smtpPort || '587',
+            smtpUsername: d.smtpUsername || 'notifications@edutech.com',
+            senderName: d.senderName || 'Edutech Platform',
+            welcomeEmail: d.welcomeEmail ?? true,
+            courseCompletionEmail: d.courseCompletionEmail ?? true,
+            marketingEmails: d.marketingEmails ?? false
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch settings:', error);
+      }
+    };
+    fetchSettings();
+  }, []);
+
   const handleSave = async () => {
     setIsSaving(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsSaving(false);
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 4000);
+    try {
+      const t = localStorage.getItem('token');
+      const payload = {
+        ...generalSettings,
+        ...paymentSettings,
+        ...emailSettings
+      };
+      const res = await fetch(`${API_URL}/admin/settings`, {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${t}` 
+        },
+        body: JSON.stringify(payload)
+      });
+      const result = await res.json();
+      if (result.success) {
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 4000);
+      }
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const renderGeneralTab = () => (

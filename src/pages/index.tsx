@@ -254,12 +254,12 @@ const HomePage: React.FC = () => {
 
           {/* Content layer & Navigation Arrows */}
           <div className="relative z-20 h-full flex items-center">
-            <div className="max-w-[2560px] w-[98%] mx-auto pl-[11%] pr-[5%] relative h-full flex items-center">
+            <div className="max-w-[2560px] w-full mx-auto px-6 md:pl-[11%] md:pr-[5%] relative h-full flex items-center">
 
               {/* Arrow: Prev (Inside Container) */}
               <button
                 onClick={prevSlide}
-                className="absolute left-0 top-1/2 -translate-y-1/2 z-30 w-14 h-14 md:w-16 md:h-16 bg-white/5 hover:bg-indigo-600/90 backdrop-blur-3xl border border-white/20 rounded-full flex items-center justify-center text-white transition-all shadow-2xl hover:scale-105 active:scale-95 group/btn"
+                className="absolute left-4 md:left-0 top-1/2 -translate-y-1/2 z-30 w-12 h-12 md:w-16 md:h-16 bg-white/5 hover:bg-indigo-600/90 backdrop-blur-3xl border border-white/20 rounded-full hidden md:flex items-center justify-center text-white transition-all shadow-2xl hover:scale-105 active:scale-95 group/btn"
                 aria-label="Previous"
               >
                 <FiChevronLeft className="h-6 w-6 transition-transform group-hover/btn:-translate-x-1" />
@@ -268,7 +268,7 @@ const HomePage: React.FC = () => {
               {/* Arrow: Next (Inside Container) */}
               <button
                 onClick={nextSlide}
-                className="absolute right-0 top-1/2 -translate-y-1/2 z-30 w-14 h-14 md:w-16 md:h-16 bg-white/5 hover:bg-indigo-600/90 backdrop-blur-3xl border border-white/20 rounded-full flex items-center justify-center text-white transition-all shadow-2xl hover:scale-105 active:scale-95 group/btn"
+                className="absolute right-4 md:right-0 top-1/2 -translate-y-1/2 z-30 w-12 h-12 md:w-16 md:h-16 bg-white/5 hover:bg-indigo-600/90 backdrop-blur-3xl border border-white/20 rounded-full hidden md:flex items-center justify-center text-white transition-all shadow-2xl hover:scale-105 active:scale-95 group/btn"
                 aria-label="Next"
               >
                 <FiChevronRight className="h-6 w-6 transition-transform group-hover/btn:translate-x-1" />
@@ -279,7 +279,7 @@ const HomePage: React.FC = () => {
                   key={slide.id}
                   className={`absolute inset-0 z-20 flex items-center ${idx === currentSlide ? 'pointer-events-auto' : 'pointer-events-none'}`}
                 >
-                  <div className="max-w-xl px-12 space-y-6">
+                  <div className="max-w-xl md:px-12 space-y-6">
                     {/* Badge */}
                     <div className={`inline-flex items-center gap-3 bg-white/10 backdrop-blur-3xl border border-white/10 px-4 py-2 rounded-full text-xs text-gray-300 font-bold uppercase tracking-widest transition-all duration-1000 delay-[200ms] ${idx === currentSlide
                         ? 'opacity-100 translate-x-0'
@@ -289,7 +289,7 @@ const HomePage: React.FC = () => {
                     </div>
 
                     {/* Headline */}
-                    <h1 className={`text-3xl md:text-5xl lg:text-6xl 2xl:text-7xl font-black text-white leading-none tracking-tighter transition-all duration-[1200ms] delay-[400ms] ${idx === currentSlide
+                    <h1 className={`text-4xl md:text-5xl lg:text-6xl 2xl:text-7xl font-black text-white leading-[1.1] tracking-tighter transition-all duration-[1200ms] delay-[400ms] ${idx === currentSlide
                         ? 'opacity-100 translate-x-0'
                         : `opacity-0 ${direction === 'next' ? '-translate-x-20' : 'translate-x-20'}`
                       }`}>
@@ -300,7 +300,7 @@ const HomePage: React.FC = () => {
                     </h1>
 
                     {/* Subtitle */}
-                    <p className={`text-lg md:text-xl text-gray-400 max-w-lg leading-relaxed font-medium transition-all duration-1000 delay-[600ms] ${idx === currentSlide
+                    <p className={`text-base md:text-xl text-gray-400 max-w-lg leading-relaxed font-medium transition-all duration-1000 delay-[600ms] ${idx === currentSlide
                         ? 'opacity-100 translate-x-0'
                         : `opacity-0 ${direction === 'next' ? '-translate-x-12' : 'translate-x-12'}`
                       }`}>
@@ -308,27 +308,27 @@ const HomePage: React.FC = () => {
                     </p>
 
                     {/* CTAs */}
-                    <div className={`flex items-center gap-5 pt-6 transition-all duration-1000 delay-[800ms] ${idx === currentSlide
+                    <div className={`flex flex-row items-center gap-3 pt-6 transition-all duration-1000 delay-[800ms] ${idx === currentSlide
                         ? 'opacity-100 translate-x-0 scale-100'
                         : `opacity-0 ${direction === 'next' ? '-translate-x-12' : 'translate-x-12'} scale-95`
                       }`}>
-                      <Link href={token ? '/dashboard' : slide.cta.href}>
-                        <button className="relative group bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white px-12 py-6 rounded-2xl font-medium uppercase tracking-widest text-xs transition-all shadow-2xl shadow-indigo-500/40 active:scale-95 flex items-center gap-4 overflow-hidden whitespace-nowrap leading-none">
+                      <Link href={token ? (user?.role === 'instructor' ? '/instructor/dashboard' : '/student/dashboard') : slide.cta.href}>
+                        <button className="relative group bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white px-4 py-3 md:px-12 md:py-6 rounded-xl md:rounded-2xl font-medium uppercase tracking-widest text-[9px] md:text-xs transition-all shadow-2xl shadow-indigo-500/40 active:scale-95 flex items-center justify-center gap-2 md:gap-4 overflow-hidden whitespace-nowrap leading-none">
                           <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer" />
-                          <FiPlay className="h-5 w-5" />
-                          {token ? 'Go to Dashboard' : slide.cta.label}
+                          <FiPlay className="h-4 w-4 md:h-5 md:w-5" />
+                          {token ? 'Dashboard' : (slide.cta.label.includes('Start') ? 'Start' : 'Explore')}
                         </button>
                       </Link>
                       <Link href={token ? '/courses' : slide.ctaSecondary.href}>
-                        <button className="bg-white/5 hover:bg-white/10 backdrop-blur-3xl border border-white/10 text-white px-12 py-6 rounded-2xl font-medium uppercase tracking-widest text-xs transition-all flex items-center gap-4 active:scale-95 shadow-xl whitespace-nowrap leading-none">
-                          <FiBookOpen className="h-5 w-5 text-indigo-400" />
-                          {token ? 'Explore Courses' : slide.ctaSecondary.label}
+                        <button className="bg-white/5 hover:bg-white/10 backdrop-blur-3xl border border-white/10 text-white px-4 py-3 md:px-12 md:py-6 rounded-xl md:rounded-2xl font-medium uppercase tracking-widest text-[9px] md:text-xs transition-all flex items-center justify-center gap-2 md:gap-4 active:scale-95 shadow-xl whitespace-nowrap leading-none">
+                          <FiBookOpen className="h-4 w-4 md:h-5 md:w-5 text-indigo-400" />
+                          {token ? 'Courses' : (slide.ctaSecondary.label.includes('Browse') ? 'Browse' : 'Account')}
                         </button>
                       </Link>
                     </div>
 
                     {/* Trust pills */}
-                    <div className="flex flex-wrap gap-6 pt-6">
+                    <div className="flex flex-wrap gap-x-6 gap-y-3 pt-6">
                       {['No credit card needed', 'Cancel anytime', '30-day guarantee'].map(text => (
                         <div key={text} className="flex items-center gap-2 text-[10px] text-gray-500 font-black uppercase tracking-widest">
                           <FiCheckCircle className="h-4 w-4 text-emerald-500" />
@@ -532,7 +532,7 @@ const HomePage: React.FC = () => {
                   Join over 45,000 students already building new skills and growing their careers. Your first lesson is just one click away.
                 </p>
                 <div className="flex flex-col sm:flex-row justify-center gap-4 pt-2">
-                  <Link href={token ? '/dashboard' : '/signup'}>
+                  <Link href={token ? (user?.role === 'instructor' ? '/instructor/dashboard' : '/student/dashboard') : '/signup'}>
                     <button className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-10 py-4 rounded-xl font-bold text-sm transition-all shadow-lg shadow-indigo-500/20 active:scale-95">
                       {token ? 'Go to Dashboard' : 'Create Free Account'}
                     </button>

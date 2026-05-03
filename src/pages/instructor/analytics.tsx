@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   FiTrendingUp, FiUsers, FiDollarSign, FiClock, FiStar, FiActivity,
-  FiArrowUpRight, FiArrowDownRight, FiBarChart2, FiLayers, FiCalendar, FiDownload, FiInfo, FiAward
+  FiArrowUpRight, FiArrowDownRight, FiBarChart2, FiLayers, FiCalendar, FiDownload, FiInfo, FiAward,
+  FiCheck, FiX
 } from 'react-icons/fi';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Button from '@/components/ui/Button';
@@ -11,6 +12,8 @@ import { useAppSelector } from '@/hooks/useRedux';
 import Pagination from '@/components/ui/Pagination';
 import { AuthenticatedPage } from '@/types';
 import API_URL from '@/config/api';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const InstructorAnalyticsPage: AuthenticatedPage = () => {
   const router = useRouter();
@@ -19,6 +22,7 @@ const InstructorAnalyticsPage: AuthenticatedPage = () => {
 
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
+  const [analyticsHistory, setAnalyticsHistory] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -27,6 +31,8 @@ const InstructorAnalyticsPage: AuthenticatedPage = () => {
   const [revenueTimeframe, setRevenueTimeframe] = useState('7d');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+
+  const [showToast, setShowToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
   // Focus Context
   const focusedCourse = useMemo(() => courses.find(c => c.id === courseId), [courses, courseId]);
@@ -41,7 +47,10 @@ const InstructorAnalyticsPage: AuthenticatedPage = () => {
         // Fetch Stats
         const statsRes = await fetch(`${API_URL}/instructor/stats`, { headers });
         const statsData = await statsRes.json();
-        if (statsData.success) setStats(statsData.stats);
+        if (statsData.success) {
+          setStats(statsData.data.stats);
+          setAnalyticsHistory(statsData.data.analyticsHistory);
+        }
 
         // Fetch Courses
         const coursesRes = await fetch(`${API_URL}/instructor/courses`, { headers });
@@ -62,48 +71,129 @@ const InstructorAnalyticsPage: AuthenticatedPage = () => {
         const studentsRes = await fetch(`${API_URL}/instructor/students`, { headers });
         const studentsData = await studentsRes.json();
         if (studentsData.success) setStudents(studentsData.data);
-
-      } catch (error) {
-        console.error('Analytics Fetch Error:', error);
+      } catch (err) {
+        console.error('Failed to fetch analytics:', err);
       } finally {
         setIsLoading(false);
       }
     };
-
-    if (isInitialized && (token || localStorage.getItem('token'))) {
-      fetchAnalytics();
-    }
-  }, [isInitialized, token]);
+    fetchAnalytics();
+  }, []);
 
   const handleExport = () => {
+    if (!stats) return;
     setIsExporting(true);
-    setTimeout(() => {
+    try {
+      const doc = new jsPDF();
+      
+      // Branding Header
+      doc.setFillColor(79, 70, 229); // Indigo-600
+      doc.rect(0, 0, 210, 40, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(24);
+      doc.setFont('helvetica', 'bold');
+      doc.text('EDUTECH ACADEMY', 14, 25);
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text('INSTRUCTOR PERFORMANCE ANALYTICS REPORT', 14, 32);
+      
+      // Generation Info
+      doc.setTextColor(100);
+      doc.setFontSize(9);
+      doc.text(`Generated on: ${new Date().toLocaleString()}`, 140, 50);
+      
+      // Summary Section Title
+      doc.setTextColor(40, 44, 52);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Performance Overview', 14, 55);
+      
+      // Summary Table
+      autoTable(doc, {
+        startY: 60,
+        head: [['Metric', 'Value']],
+        body: [
+          ['Total Revenue', `$${stats.totalRevenue.toLocaleString()}`],
+          ['Active Students', stats.totalStudents.toString()],
+          ['Total Courses', stats.totalCourses.toString()],
+          ['Average Rating', `${stats.rating} / 5.0`],
+          ['Platform Engagement', `${stats.engagement}%`]
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [79, 70, 229], fontStyle: 'bold' },
+        styles: { fontSize: 10, cellPadding: 5 }
+      });
+
+      // Course Detailed Table
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Course Detailed Breakdown', 14, (doc as any).lastAutoTable.finalY + 15);
+
+      autoTable(doc, {
+        startY: (doc as any).lastAutoTable.finalY + 20,
+        head: [['Course Title', 'Students', 'Revenue', 'Rating']],
+        body: courses.map(c => [
+          c.title, 
+          c.students.toString(), 
+          `$${c.revenue.toLocaleString()}`, 
+          `${c.rating} Stars`
+        ]),
+        theme: 'striped',
+        headStyles: { fillColor: [16, 185, 129], fontStyle: 'bold' },
+        styles: { fontSize: 9 }
+      });
+
+      // Footer
+      const pageCount = (doc as any).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text('Confidential Instructor Report - For internal use only', 14, 285);
+        doc.text(`Page ${i} of ${pageCount}`, 180, 285);
+      }
+
+      doc.save(`instructor_report_${new Date().getTime()}.pdf`);
+      setShowToast({ message: 'Analytics report downloaded successfully', type: 'success' });
+    } catch (err) {
+      console.error(err);
+      setShowToast({ message: 'Failed to generate PDF', type: 'error' });
+    } finally {
       setIsExporting(false);
-      alert('Success: Analytics report generated and downloaded as CSV!');
-    }, 1500);
+      setTimeout(() => setShowToast(null), 3000);
+    }
   };
 
   // Revenue Data based on timeframe
   const revenueData = useMemo(() => {
+    if (analyticsHistory.length > 0) {
+      return analyticsHistory.map(item => ({
+        name: item.month,
+        revenue: item.revenue,
+        students: item.students
+      }));
+    }
+
     if (revenueTimeframe === '7d') {
       return [
-        { name: 'Mon', revenue: 4000 },
-        { name: 'Tue', revenue: 3000 },
-        { name: 'Wed', revenue: 5000 },
-        { name: 'Thu', revenue: 2780 },
-        { name: 'Fri', revenue: 1890 },
-        { name: 'Sat', revenue: 2390 },
-        { name: 'Sun', revenue: 3490 },
+        { name: 'Mon', revenue: 0 },
+        { name: 'Tue', revenue: 0 },
+        { name: 'Wed', revenue: 0 },
+        { name: 'Thu', revenue: 0 },
+        { name: 'Fri', revenue: 0 },
+        { name: 'Sat', revenue: 0 },
+        { name: 'Sun', revenue: 0 },
       ];
     }
-    // Mock 30-day data (4 weeks)
     return [
-      { name: 'W1', revenue: 18000 },
-      { name: 'W2', revenue: 25000 },
-      { name: 'W3', revenue: 21000 },
-      { name: 'W4', revenue: 32000 },
+      { name: 'W1', revenue: 0 },
+      { name: 'W2', revenue: 0 },
+      { name: 'W3', revenue: 0 },
+      { name: 'W4', revenue: 0 },
     ];
-  }, [revenueTimeframe]);
+  }, [analyticsHistory, revenueTimeframe]);
 
   // Enrollment Data for Pie Chart
   const enrollmentData = useMemo(() => {
@@ -427,6 +517,24 @@ const InstructorAnalyticsPage: AuthenticatedPage = () => {
         </div>
 
       </div>
+      
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-top-8 duration-500">
+          <div className={`px-10 py-5 rounded-2xl flex items-center shadow-2xl backdrop-blur-3xl border ${
+            showToast.type === 'success' 
+              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
+              : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+          }`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-4 ${
+              showToast.type === 'success' ? 'bg-emerald-500/20' : 'bg-rose-500/20'
+            }`}>
+              {showToast.type === 'success' ? <FiCheck className="h-4 w-4" /> : <FiX className="h-4 w-4" />}
+            </div>
+            <span className="text-[11px] font-black uppercase tracking-[0.2em] italic">{showToast.message}</span>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 };

@@ -16,6 +16,8 @@
     "axios": "^1.14.0",
     "clsx": "^2.1.1",
     "hls.js": "^1.6.15",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
     "next": "14.0.4",
     "pusher-js": "^8.5.0",
     "react": "^18",

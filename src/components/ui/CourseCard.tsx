@@ -55,9 +55,9 @@ const CourseCard: React.FC<CourseCardProps> = ({
   const isFree = price === 0 || price === '0' || price === 'Free' || price === '$0.00';
   
   const content = (
-    <div className={`group bg-gray-900/50 border border-white/5 rounded-2xl overflow-hidden hover:border-indigo-500/30 hover:shadow-2xl transition-all duration-500 flex ${variant === 'list' ? 'flex-row' : 'flex-col'} h-full shadow-2xl`}>
+    <div className={`group bg-gray-900/50 border border-white/5 rounded-2xl overflow-hidden hover:border-indigo-500/30 hover:shadow-2xl transition-all duration-500 flex ${variant === 'list' ? 'flex-col sm:flex-row' : 'flex-col'} h-full shadow-2xl`}>
       {/* Thumbnail Area */}
-      <div className={`relative overflow-hidden shrink-0 ${variant === 'list' ? 'w-64 h-auto' : 'aspect-[16/10]'}`}>
+      <div className={`relative overflow-hidden shrink-0 ${variant === 'list' ? 'w-full sm:w-64 h-48 sm:h-auto' : 'aspect-[16/10]'}`}>
         {thumbnail ? (
           <img
             src={thumbnail}

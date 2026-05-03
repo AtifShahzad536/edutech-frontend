@@ -8,6 +8,7 @@ import { AuthenticatedPage } from '@/types';
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
 import { addCourse, updateCourse, fetchCourseById } from '@/store/slices/courseSlice';
 import { useEffect } from 'react';
+import toast from 'react-hot-toast';
 import API_URL from '@/config/api';
 
 interface CourseFormData {
@@ -26,12 +27,29 @@ interface Module {
   lessons: Lesson[];
 }
 
+interface QuizQuestion {
+  id: string;
+  questionText: string;
+  options: string[];
+  correctOptionIndex: number;
+}
+
+interface LessonResource {
+  id: string;
+  title: string;
+  url: string;
+  fileType: string;
+}
+
 interface Lesson {
   id: string;
   title: string;
   type: 'video' | 'text' | 'quiz' | 'live';
   content?: string;
   isUploading?: boolean;
+  passingScore?: number;
+  quizQuestions?: QuizQuestion[];
+  resources?: LessonResource[];
 }
 
 const CreateCoursePage: AuthenticatedPage = () => {
@@ -55,7 +73,8 @@ const CreateCoursePage: AuthenticatedPage = () => {
   }, [id, dispatch]);
 
   useEffect(() => {
-    if (id && currentCourse && currentCourse.id === id) {
+    const courseId = currentCourse?.id || currentCourse?._id;
+    if (id && currentCourse && courseId === id) {
        reset({
           title: currentCourse.title,
           description: currentCourse.description || '',
@@ -64,6 +83,10 @@ const CreateCoursePage: AuthenticatedPage = () => {
           price: currentCourse.price || 0,
           language: 'English',
        });
+       
+       if (currentCourse.thumbnail) {
+         setThumbnailUrl(currentCourse.thumbnail);
+       }
        
        // Hydrate Curriculum (Modules & Lessons)
         if (currentCourse.sections && currentCourse.sections.length > 0) {
@@ -105,7 +128,13 @@ const CreateCoursePage: AuthenticatedPage = () => {
   };
 
   const addLesson = (moduleId: string) => {
-    const newLesson: Lesson = { id: Date.now().toString() + Math.random().toString(36).substring(7), title: '', type: 'video' };
+    const newLesson: Lesson = { 
+      id: Date.now().toString() + Math.random().toString(36).substring(7), 
+      title: '', 
+      type: 'video',
+      passingScore: 80,
+      quizQuestions: []
+    };
     setModules(modules.map(m => m.id === moduleId ? { ...m, lessons: [...m.lessons, newLesson] } : m));
   };
 
@@ -117,6 +146,91 @@ const CreateCoursePage: AuthenticatedPage = () => {
     setModules(modules.map(m => m.id === moduleId ? { 
       ...m, 
       lessons: m.lessons.map(l => l.id === lessonId ? { ...l, [field]: value } : l) 
+    } : m));
+  };
+
+  const addQuizQuestion = (moduleId: string, lessonId: string) => {
+    setModules(modules.map(m => m.id === moduleId ? {
+      ...m,
+      lessons: m.lessons.map(l => {
+        if (l.id === lessonId) {
+          const newQuestion: QuizQuestion = {
+            id: Date.now().toString(),
+            questionText: '',
+            options: ['', ''],
+            correctOptionIndex: 0
+          };
+          return { ...l, quizQuestions: [...(l.quizQuestions || []), newQuestion] };
+        }
+        return l;
+      })
+    } : m));
+  };
+
+  const updateQuizQuestion = (moduleId: string, lessonId: string, questionId: string, field: keyof QuizQuestion, value: any) => {
+    setModules(modules.map(m => m.id === moduleId ? {
+      ...m,
+      lessons: m.lessons.map(l => {
+        if (l.id === lessonId) {
+          return {
+            ...l,
+            quizQuestions: (l.quizQuestions || []).map(q => q.id === questionId ? { ...q, [field]: value } : q)
+          };
+        }
+        return l;
+      })
+    } : m));
+  };
+
+  const removeQuizQuestion = (moduleId: string, lessonId: string, questionId: string) => {
+    setModules(modules.map(m => m.id === moduleId ? {
+      ...m,
+      lessons: m.lessons.map(l => {
+        if (l.id === lessonId) {
+          return { ...l, quizQuestions: (l.quizQuestions || []).filter(q => q.id !== questionId) };
+        }
+        return l;
+      })
+    } : m));
+  };
+
+  const addResource = (moduleId: string, lessonId: string) => {
+    setModules(modules.map(m => m.id === moduleId ? {
+      ...m,
+      lessons: m.lessons.map(l => {
+        if (l.id === lessonId) {
+          const newResource: LessonResource = { id: Date.now().toString(), title: '', url: '', fileType: 'PDF' };
+          return { ...l, resources: [...(l.resources || []), newResource] };
+        }
+        return l;
+      })
+    } : m));
+  };
+
+  const updateResource = (moduleId: string, lessonId: string, resourceId: string, field: keyof LessonResource, value: string) => {
+    setModules(modules.map(m => m.id === moduleId ? {
+      ...m,
+      lessons: m.lessons.map(l => {
+        if (l.id === lessonId) {
+          return {
+            ...l,
+            resources: (l.resources || []).map(r => r.id === resourceId ? { ...r, [field]: value } : r)
+          };
+        }
+        return l;
+      })
+    } : m));
+  };
+
+  const removeResource = (moduleId: string, lessonId: string, resourceId: string) => {
+    setModules(modules.map(m => m.id === moduleId ? {
+      ...m,
+      lessons: m.lessons.map(l => {
+        if (l.id === lessonId) {
+          return { ...l, resources: (l.resources || []).filter(r => r.id !== resourceId) };
+        }
+        return l;
+      })
     } : m));
   };
 
@@ -135,9 +249,12 @@ const CreateCoursePage: AuthenticatedPage = () => {
       const result = await response.json();
       if (result.success) {
         setThumbnailUrl(result.data);
+      } else {
+        toast.error('Thumbnail upload failed: ' + (result.message || 'File might be too large'));
       }
     } catch (error) {
       console.error('Thumbnail upload failed:', error);
+      toast.error('Network error during upload. File may be too large.');
     } finally {
       setIsUploadingThumbnail(false);
     }
@@ -161,9 +278,12 @@ const CreateCoursePage: AuthenticatedPage = () => {
       const result = await response.json();
       if (result.success) {
         updateLesson(moduleId, lessonId, 'content', result.data);
+      } else {
+        toast.error('Lesson upload failed: ' + (result.message || 'File might be too large (100MB limit)'));
       }
     } catch (error) {
       console.error('Lesson upload failed:', error);
+      toast.error('Network error during upload. File may be too large.');
     } finally {
        setModules(prev => prev.map(m => m.id === moduleId ? {
          ...m,
@@ -188,12 +308,23 @@ const CreateCoursePage: AuthenticatedPage = () => {
           isPublished: true, // Mark as published when submitted from this button
           sections: modules.map((m, index) => ({
             title: m.title || `Module ${index + 1}`,
-            lessons: m.lessons.map(l => ({
-              title: l.title,
+            lessons: m.lessons.map((l, lIndex) => ({
+              title: l.title || `Lesson ${lIndex + 1}`,
               type: l.type,
               videoUrl: l.type === 'video' ? l.content : '',
               content: l.type === 'text' ? l.content : '',
-              duration: 15
+              duration: 15,
+              passingScore: l.type === 'quiz' ? (l.passingScore || 80) : undefined,
+              quizQuestions: l.type === 'quiz' ? l.quizQuestions?.map(q => ({
+                questionText: q.questionText,
+                options: q.options,
+                correctOptionIndex: q.correctOptionIndex
+              })) : undefined,
+              resources: l.resources?.filter(r => r.title && r.url).map(r => ({
+                title: r.title,
+                url: r.url,
+                fileType: r.fileType
+              })) || []
             }))
           }))
         };
@@ -215,14 +346,14 @@ const CreateCoursePage: AuthenticatedPage = () => {
 
         const result = await response.json();
         if (result.success) {
-          alert(`Course ${isEditing ? 'Updated' : 'Published'} Successfully!`);
+          toast.success(`Course ${isEditing ? 'Updated' : 'Published'} Successfully!`);
           router.push('/instructor/courses');
         } else if (response.status === 401) {
-          alert('Your session has expired or is invalid. We will sign you out. Please sign in again.');
+          toast.error('Session expired. Please sign in again.');
           localStorage.removeItem('token');
           router.push('/auth/login');
         } else {
-          alert(`Error: ${result.message}`);
+          toast.error(`Error: ${result.message}`);
         }
       } catch (error) {
         console.error('Course operation failed:', error);
@@ -494,6 +625,148 @@ const CreateCoursePage: AuthenticatedPage = () => {
                                           </div>
                                        </div>
                                     )}
+                                    {lesson.type === 'text' && (
+                                       <div className="space-y-2 animate-in slide-in-from-top-2">
+                                          <textarea
+                                             placeholder="Write or paste your lesson content here..."
+                                             value={lesson.content || ''}
+                                             onChange={(e) => updateLesson(mod.id, lesson.id, 'content', e.target.value)}
+                                             rows={6}
+                                             className="w-full bg-black/40 border border-white/10 py-4 px-4 rounded-xl text-sm text-gray-300 placeholder-gray-700 focus:outline-none focus:border-indigo-500/40 transition-all resize-none"
+                                          />
+                                       </div>
+                                    )}
+                                    {lesson.type === 'quiz' && (
+                                       <div className="space-y-6 animate-in slide-in-from-top-2 p-6 bg-black/20 border border-indigo-500/10 rounded-2xl">
+                                          <div className="flex items-center justify-between">
+                                             <div>
+                                                <h4 className="text-sm font-bold text-white">Quiz Questions</h4>
+                                                <p className="text-xs text-gray-400 mt-1">Passing Score: <input type="number" min="0" max="100" value={lesson.passingScore || 80} onChange={(e) => updateLesson(mod.id, lesson.id, 'passingScore', Number(e.target.value))} className="w-16 bg-black/40 border border-white/10 rounded px-2 py-1 text-white ml-2 inline-block focus:border-indigo-500/50 outline-none" /> %</p>
+                                             </div>
+                                             <Button type="button" variant="outline" onClick={() => addQuizQuestion(mod.id, lesson.id)} className="text-[10px] py-1.5 px-3">
+                                                <FiPlus className="mr-1.5 h-3 w-3" /> Add Question
+                                             </Button>
+                                          </div>
+                                          
+                                          <div className="space-y-6">
+                                            {(!lesson.quizQuestions || lesson.quizQuestions.length === 0) && (
+                                              <div className="text-center py-8 border border-dashed border-white/10 rounded-xl">
+                                                <p className="text-xs text-gray-500">No questions added yet.</p>
+                                              </div>
+                                            )}
+                                            {lesson.quizQuestions?.map((q, qIndex) => (
+                                              <div key={q.id} className="p-5 bg-white/5 border border-white/10 rounded-xl space-y-4 relative group">
+                                                <button type="button" onClick={() => removeQuizQuestion(mod.id, lesson.id, q.id)} className="absolute top-4 right-4 text-gray-500 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                  <FiTrash2 className="h-4 w-4" />
+                                                </button>
+                                                
+                                                <div className="pr-8">
+                                                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Question {qIndex + 1}</label>
+                                                  <textarea
+                                                    placeholder="Enter question text..."
+                                                    value={q.questionText}
+                                                    onChange={(e) => updateQuizQuestion(mod.id, lesson.id, q.id, 'questionText', e.target.value)}
+                                                    rows={2}
+                                                    className="w-full bg-black/40 border border-white/10 py-3 px-4 rounded-xl text-sm text-gray-300 focus:outline-none focus:border-indigo-500/40 transition-all resize-none"
+                                                  />
+                                                </div>
+                                                
+                                                <div className="space-y-3 pl-4 border-l-2 border-indigo-500/20">
+                                                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-3">Options & Correct Answer</label>
+                                                  {q.options.map((opt, optIndex) => (
+                                                    <div key={optIndex} className="flex items-center gap-3">
+                                                      <input 
+                                                        type="radio" 
+                                                        name={`correct-${q.id}`} 
+                                                        checked={q.correctOptionIndex === optIndex}
+                                                        onChange={() => updateQuizQuestion(mod.id, lesson.id, q.id, 'correctOptionIndex', optIndex)}
+                                                        className="w-4 h-4 text-indigo-500 bg-black/40 border-white/20 focus:ring-indigo-500 focus:ring-offset-gray-900 cursor-pointer"
+                                                      />
+                                                      <input
+                                                        placeholder={`Option ${optIndex + 1}`}
+                                                        value={opt}
+                                                        onChange={(e) => {
+                                                          const newOpts = [...q.options];
+                                                          newOpts[optIndex] = e.target.value;
+                                                          updateQuizQuestion(mod.id, lesson.id, q.id, 'options', newOpts);
+                                                        }}
+                                                        className={`flex-1 bg-black/40 border py-2 px-4 rounded-lg text-sm transition-all focus:outline-none ${q.correctOptionIndex === optIndex ? 'border-emerald-500/50 text-emerald-100 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'border-white/10 text-gray-300 focus:border-indigo-500/40'}`}
+                                                      />
+                                                      <button 
+                                                        type="button" 
+                                                        onClick={() => {
+                                                          const newOpts = q.options.filter((_, idx) => idx !== optIndex);
+                                                          const newCorrect = q.correctOptionIndex === optIndex ? 0 : (q.correctOptionIndex > optIndex ? q.correctOptionIndex - 1 : q.correctOptionIndex);
+                                                          updateQuizQuestion(mod.id, lesson.id, q.id, 'options', newOpts);
+                                                          updateQuizQuestion(mod.id, lesson.id, q.id, 'correctOptionIndex', newCorrect);
+                                                        }}
+                                                        disabled={q.options.length <= 2}
+                                                        className="text-gray-500 hover:text-rose-500 disabled:opacity-30 disabled:hover:text-gray-500 p-2"
+                                                      >
+                                                        <FiX className="h-4 w-4" />
+                                                      </button>
+                                                    </div>
+                                                  ))}
+                                                  <button 
+                                                    type="button" 
+                                                    onClick={() => updateQuizQuestion(mod.id, lesson.id, q.id, 'options', [...q.options, ''])}
+                                                    className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest hover:text-indigo-300 flex items-center mt-3"
+                                                  >
+                                                    <FiPlus className="mr-1 h-3 w-3" /> Add Option
+                                                  </button>
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                       </div>
+                                    )}
+
+                                    {/* Resources Block */}
+                                    <div className="mt-6 border-t border-white/5 pt-6 animate-in fade-in duration-500">
+                                       <div className="flex items-center justify-between mb-4">
+                                          <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block">Lesson Resources</label>
+                                          <Button type="button" variant="outline" onClick={() => addResource(mod.id, lesson.id)} className="text-[10px] py-1.5 px-3">
+                                             <FiPlus className="mr-1.5 h-3 w-3" /> Add Link
+                                          </Button>
+                                       </div>
+                                       
+                                       <div className="space-y-3">
+                                          {lesson.resources?.map((res) => (
+                                            <div key={res.id} className="flex flex-wrap md:flex-nowrap items-center gap-3 bg-black/40 p-3 rounded-xl border border-white/10 group hover:border-indigo-500/30 transition-colors">
+                                              <select 
+                                                value={res.fileType}
+                                                onChange={(e) => updateResource(mod.id, lesson.id, res.id, 'fileType', e.target.value)}
+                                                className="bg-gray-900 border border-white/10 rounded-lg text-xs text-white px-3 py-2.5 focus:outline-none focus:border-indigo-500/50 appearance-none cursor-pointer"
+                                              >
+                                                <option value="PDF">PDF</option>
+                                                <option value="ZIP">ZIP</option>
+                                                <option value="Link">Link</option>
+                                                <option value="Doc">Doc</option>
+                                              </select>
+                                              <input
+                                                placeholder="Title (e.g. Cheat Sheet)"
+                                                value={res.title}
+                                                onChange={(e) => updateResource(mod.id, lesson.id, res.id, 'title', e.target.value)}
+                                                className="w-full md:w-1/3 bg-gray-900 border border-white/10 py-2.5 px-4 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500/50 transition-colors"
+                                              />
+                                              <input
+                                                placeholder="Resource URL (Google Drive, Dropbox, etc)"
+                                                value={res.url}
+                                                onChange={(e) => updateResource(mod.id, lesson.id, res.id, 'url', e.target.value)}
+                                                className="flex-1 w-full bg-gray-900 border border-white/10 py-2.5 px-4 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500/50 transition-colors"
+                                              />
+                                              <button type="button" onClick={() => removeResource(mod.id, lesson.id, res.id)} className="text-gray-500 hover:text-rose-500 p-2 transition-colors ml-auto md:ml-0">
+                                                <FiTrash2 className="h-4 w-4" />
+                                              </button>
+                                            </div>
+                                          ))}
+                                          {(!lesson.resources || lesson.resources.length === 0) && (
+                                            <div className="text-center py-4 border border-dashed border-white/5 rounded-xl">
+                                               <p className="text-[10px] text-gray-600 uppercase tracking-widest font-black">No resources attached</p>
+                                            </div>
+                                          )}
+                                       </div>
+                                    </div>
                                  </div>
                               ))}
                            </div>

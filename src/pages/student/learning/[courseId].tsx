@@ -14,6 +14,14 @@ import { addNotification } from '@/store/slices/uiSlice';
 import { selectLiveClasses } from '@/store/index';
 import { Lesson, AuthenticatedPage } from '@/types';
 import apiClient from '@/config/apiClient';
+import toast from 'react-hot-toast';
+
+interface QuizQuestion {
+  id: string;
+  questionText: string;
+  options: string[];
+  correctOptionIndex: number;
+}
 
 interface ExtendedLesson extends Omit<Lesson, 'courseId' | 'description' | 'type' | 'content' | 'duration' | 'createdAt' | 'updatedAt' | 'order' | 'isPreview'> {
   courseId?: string;
@@ -27,6 +35,8 @@ interface ExtendedLesson extends Omit<Lesson, 'courseId' | 'description' | 'type
   isLocked?: boolean;
   order: number;
   isPreview: boolean;
+  passingScore?: number;
+  quizQuestions?: QuizQuestion[];
 }
 
 interface ExtendedModule {
@@ -53,6 +63,30 @@ const CourseLearningPage: AuthenticatedPage = () => {
   const [newQuestionTitle, setNewQuestionTitle] = useState('');
   const [newQuestionContent, setNewQuestionContent] = useState('');
   const [isSubmittingContext, setIsSubmittingContext] = useState(false);
+
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
+
+  const handleQuizSubmit = () => {
+    if (!currentLesson?.quizQuestions) return;
+    
+    let correctCount = 0;
+    const totalQuestions = currentLesson.quizQuestions.length;
+    
+    currentLesson.quizQuestions.forEach((q: any, idx: number) => {
+      if (quizAnswers[idx] === q.correctOptionIndex) {
+        correctCount++;
+      }
+    });
+
+    const score = (correctCount / totalQuestions) * 100;
+    const requiredScore = currentLesson.passingScore || 80;
+
+    if (score >= requiredScore) {
+      toast.success(`Quiz Passed! You scored ${Math.round(score)}%`);
+    } else {
+      toast.error(`Quiz Failed. You scored ${Math.round(score)}%. You need ${requiredScore}% to pass.`);
+    }
+  };
 
   const scrollToTabs = (tab: 'resources' | 'discussions') => {
     setActiveTab(tab);
@@ -85,13 +119,17 @@ const CourseLearningPage: AuthenticatedPage = () => {
         lessons: s.lessons.map((l: any) => ({
           id: l._id || l.id,
           title: l.title,
-          type: l.videoUrl ? 'video' : 'text',
+          type: l.type || (l.videoUrl ? 'video' : 'text'),
           videoUrl: l.videoUrl,
+          content: l.content,
           duration: l.duration ? `${l.duration}:00` : '10:00',
           completed: false, // Update with real progress tracker later
           isLocked: false,
           order: l.order || 0,
-          isPreview: l.isFree || false
+          isPreview: l.isFree || false,
+          passingScore: l.passingScore,
+          quizQuestions: l.quizQuestions,
+          resources: l.resources
         }))
       }));
     }
@@ -138,6 +176,7 @@ const CourseLearningPage: AuthenticatedPage = () => {
 
   const handleLessonSelect = (lessonId: string) => {
     setCurrentLessonId(lessonId);
+    setQuizAnswers({}); // Reset quiz answers when changing lesson
     router.push({ query: { ...router.query, lesson: lessonId } }, undefined, { shallow: true });
   };
 
@@ -285,19 +324,76 @@ const CourseLearningPage: AuthenticatedPage = () => {
            
            {/* Primary Stage: Video & Description */}
            <div className="flex-1 flex flex-col min-w-0">
-              <div className="relative h-[65vh] bg-black shadow-2xl z-10 border-b border-white/5">
-                 <VideoPlayer
-                   key={currentLessonId}
-                   src={(currentLesson as any)?.videoUrl || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"}
-                   courseId={courseId as string}
-                   lessonId={currentLessonId}
-                   autoResume={true}
-                 />
+              <div className="relative h-[65vh] bg-black shadow-2xl z-10 border-b border-white/5 overflow-y-auto custom-scrollbar">
+                 {(currentLesson?.type === 'video' || currentLesson?.type === 'live') ? (
+                   <VideoPlayer
+                     key={currentLessonId}
+                     src={(currentLesson as any)?.videoUrl || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"}
+                     courseId={courseId as string}
+                     lessonId={currentLessonId}
+                     autoResume={true}
+                   />
+                 ) : currentLesson?.type === 'text' ? (
+                   <div className="p-12 max-w-4xl mx-auto min-h-full">
+                     <div className="bg-white/[0.02] border border-white/5 p-10 rounded-3xl text-gray-300 whitespace-pre-wrap leading-relaxed text-lg font-medium shadow-xl">
+                        {currentLesson?.content || "No text content available for this lesson."}
+                     </div>
+                   </div>
+                 ) : currentLesson?.type === 'quiz' ? (
+                   <div className="p-12 max-w-4xl mx-auto min-h-full">
+                      <div className="bg-indigo-600/10 border border-indigo-500/20 p-8 rounded-3xl mb-8 text-center shadow-xl shadow-indigo-500/5">
+                         <h2 className="text-3xl font-black text-white uppercase tracking-tighter mb-2">Knowledge Check</h2>
+                         <p className="text-indigo-400 font-bold tracking-widest text-sm uppercase">Passing Score Required: {currentLesson.passingScore || 80}%</p>
+                      </div>
+                      
+                      <div className="space-y-8">
+                        {(!currentLesson.quizQuestions || currentLesson.quizQuestions.length === 0) ? (
+                          <div className="text-center py-20 border border-dashed border-white/10 rounded-3xl">
+                             <p className="text-gray-500 font-bold">No questions available for this quiz.</p>
+                          </div>
+                        ) : (
+                          currentLesson.quizQuestions.map((q: any, i: number) => (
+                            <div key={i} className="bg-white/[0.02] border border-white/5 p-8 rounded-3xl shadow-xl">
+                              <h3 className="text-xl font-bold text-white mb-6"><span className="text-indigo-500 mr-2">{i + 1}.</span> {q.questionText}</h3>
+                              <div className="space-y-3">
+                                {q.options?.map((opt: string, j: number) => (
+                                  <label key={j} className={`flex items-center gap-4 p-5 rounded-2xl border transition-all cursor-pointer group ${quizAnswers[i] === j ? 'border-indigo-500/50 bg-indigo-500/5 text-white' : 'border-white/10 hover:bg-white/5 hover:border-indigo-500/30'}`}>
+                                    <input 
+                                      type="radio" 
+                                      name={`question-${i}`} 
+                                      checked={quizAnswers[i] === j}
+                                      onChange={() => setQuizAnswers(prev => ({ ...prev, [i]: j }))}
+                                      className="w-5 h-5 text-indigo-500 bg-black/50 border-white/20 focus:ring-indigo-500 focus:ring-offset-gray-900 cursor-pointer" 
+                                    />
+                                    <span className={`font-medium transition-colors ${quizAnswers[i] === j ? 'text-indigo-300' : 'text-gray-300 group-hover:text-white'}`}>{opt}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      {currentLesson.quizQuestions && currentLesson.quizQuestions.length > 0 && (
+                        <div className="mt-12 flex justify-center">
+                          <Button 
+                            variant="primary" 
+                            size="lg" 
+                            disabled={Object.keys(quizAnswers).length < currentLesson.quizQuestions.length}
+                            className="bg-indigo-600 hover:bg-indigo-500 px-12 py-5 text-sm tracking-widest uppercase font-black rounded-2xl shadow-2xl shadow-indigo-600/20 transition-all hover:-translate-y-1 disabled:opacity-50 disabled:hover:translate-y-0 disabled:cursor-not-allowed" 
+                            onClick={handleQuizSubmit}
+                          >
+                            {Object.keys(quizAnswers).length < currentLesson.quizQuestions.length ? 'Answer all questions' : 'Submit Quiz'}
+                          </Button>
+                        </div>
+                      )}
+                   </div>
+                 ) : null}
                  
-                 {/* Video Playback HUD Overlay */}
+                 {/* Playback HUD Overlay */}
                  <div className="absolute top-6 left-6 flex items-center gap-3 z-20 pointer-events-none">
-                    <div className="bg-black/60 backdrop-blur-md border border-white/10 px-4 py-2 rounded-xl">
-                       <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Current Lesson</p>
+                    <div className="bg-black/60 backdrop-blur-md border border-white/10 px-4 py-2 rounded-xl shadow-2xl">
+                       <p className="text-[10px] font-black uppercase tracking-widest text-white/40">{currentLesson?.type === 'quiz' ? 'Current Quiz' : currentLesson?.type === 'text' ? 'Current Reading' : 'Current Lesson'}</p>
                        <p className="text-sm font-bold text-white tracking-tight">{currentLesson?.title}</p>
                     </div>
                  </div>
