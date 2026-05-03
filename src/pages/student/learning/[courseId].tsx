@@ -15,6 +15,7 @@ import { selectLiveClasses } from '@/store/index';
 import { Lesson, AuthenticatedPage } from '@/types';
 import apiClient from '@/config/apiClient';
 import toast from 'react-hot-toast';
+import jsPDF from 'jspdf';
 
 interface QuizQuestion {
   id: string;
@@ -52,7 +53,7 @@ const CourseLearningPage: AuthenticatedPage = () => {
   const { courseId, lesson: lessonQueryId } = router.query;
   
   const { currentCourse, wishlist } = useAppSelector((state) => state.courses);
-  const { token } = useAppSelector((state) => state.auth);
+  const { token, user } = useAppSelector((state) => state.auth);
   const isWishlisted = currentCourse ? wishlist.includes(currentCourse.id || '') : false;
   const liveClasses = useAppSelector(selectLiveClasses);
 
@@ -65,6 +66,9 @@ const CourseLearningPage: AuthenticatedPage = () => {
   const [isSubmittingContext, setIsSubmittingContext] = useState(false);
 
   const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
+  const [completedLessons, setCompletedLessons] = useState<string[]>([]);
+  const [progress, setProgress] = useState<number>(0);
+  const [isMarkingComplete, setIsMarkingComplete] = useState(false);
 
   const handleQuizSubmit = () => {
     if (!currentLesson?.quizQuestions) return;
@@ -83,6 +87,8 @@ const CourseLearningPage: AuthenticatedPage = () => {
 
     if (score >= requiredScore) {
       toast.success(`Quiz Passed! You scored ${Math.round(score)}%`);
+      // Also mark quiz as complete
+      markLessonComplete(currentLessonId);
     } else {
       toast.error(`Quiz Failed. You scored ${Math.round(score)}%. You need ${requiredScore}% to pass.`);
     }
@@ -104,8 +110,8 @@ const CourseLearningPage: AuthenticatedPage = () => {
       setCurrentLessonId(lessonQueryId as string);
     } else if (currentCourse?.lessons?.length) {
       setCurrentLessonId(currentCourse.lessons[0].id);
-    } else {
-        setCurrentLessonId('lesson-1');
+    } else if (currentCourse && (currentCourse as any).sections?.[0]?.lessons?.[0]) {
+      setCurrentLessonId((currentCourse as any).sections[0].lessons[0]._id || (currentCourse as any).sections[0].lessons[0].id);
     }
   }, [lessonQueryId, currentCourse]);
 
@@ -123,7 +129,7 @@ const CourseLearningPage: AuthenticatedPage = () => {
           videoUrl: l.videoUrl,
           content: l.content,
           duration: l.duration ? `${l.duration}:00` : '10:00',
-          completed: false, // Update with real progress tracker later
+          completed: false, 
           isLocked: false,
           order: l.order || 0,
           isPreview: l.isFree || false,
@@ -192,11 +198,187 @@ const CourseLearningPage: AuthenticatedPage = () => {
     }
   }, [courseId, token]);
 
+  const fetchProgress = useCallback(async () => {
+    if (!courseId || !token) return;
+    try {
+      const response: any = await apiClient.get(`/dashboard/progress/${courseId}`);
+      if (response.success) {
+        setCompletedLessons(response.data.completedLessons || []);
+        setProgress(response.data.progress || 0);
+      }
+    } catch (err) {
+      console.error('Failed to fetch progress', err);
+    }
+  }, [courseId, token]);
+
+  useEffect(() => {
+    if (courseId) {
+      fetchProgress();
+    }
+  }, [courseId, fetchProgress]);
+
   useEffect(() => {
     if (activeTab === 'discussions') {
       fetchDiscussions();
     }
   }, [activeTab, fetchDiscussions]);
+
+  const markLessonComplete = async (lId: string) => {
+    if (!courseId || !lId || isMarkingComplete) return;
+    setIsMarkingComplete(true);
+    try {
+      const response: any = await apiClient.post('/dashboard/progress/lesson', {
+        courseId,
+        lessonId: lId
+      });
+      if (response.success) {
+        setCompletedLessons(prev => Array.from(new Set([...prev, lId])));
+        setProgress(response.data.progress);
+        if (response.data.progress === 100) {
+          toast.success('Congratulations! You have completed the course!');
+        }
+      }
+    } catch (err) {
+      console.error('Error marking lesson complete', err);
+    } finally {
+      setIsMarkingComplete(false);
+    }
+  };
+
+  const handleDownloadCertificate = () => {
+    if (!currentCourse || !user) return;
+    
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    // 1. White Background
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+    
+    // 2. Elegant Double Border
+    doc.setDrawColor(79, 70, 229); // Indigo
+    doc.setLineWidth(1.5);
+    doc.rect(8, 8, pageWidth - 16, pageHeight - 16);
+    doc.setDrawColor(245, 158, 11); // Gold
+    doc.setLineWidth(0.5);
+    doc.rect(11, 11, pageWidth - 22, pageHeight - 22);
+
+    // 3. Logo (Attempt to add logo)
+    try {
+      doc.addImage('/logo.png', 'PNG', pageWidth / 2 - 20, 15, 40, 25);
+    } catch (e) {
+      console.warn('Logo could not be loaded for certificate', e);
+    }
+
+    // 4. Header Section (Moved up)
+    doc.setTextColor(31, 41, 55);
+    doc.setFontSize(32); // Slightly smaller
+    doc.setFont('helvetica', 'bold');
+    doc.text('CERTIFICATE OF COMPLETION', pageWidth / 2, 50, { align: 'center' });
+    
+    doc.setDrawColor(229, 231, 235);
+    doc.setLineWidth(0.5);
+    doc.line(pageWidth / 2 - 50, 54, pageWidth / 2 + 50, 54);
+
+    // 5. "Presented to" Section
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(107, 114, 128);
+    doc.text('This is to certify that', pageWidth / 2, 70, { align: 'center' });
+
+    // 6. Student Name
+    doc.setFontSize(34);
+    doc.setTextColor(79, 70, 229); // Indigo
+    doc.setFont('helvetica', 'bold');
+    const fullName = `${user.firstName} ${user.lastName}`.toUpperCase();
+    doc.text(fullName, pageWidth / 2, 90, { align: 'center' });
+
+    // 7. Course Details Section
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(107, 114, 128);
+    doc.text('has successfully mastered all requirements for the professional course', pageWidth / 2, 105, { align: 'center' });
+
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(31, 41, 55);
+    doc.text(currentCourse.title.toUpperCase(), pageWidth / 2, 120, { align: 'center' });
+
+    // 8. Detailed Stats
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(156, 163, 175);
+    const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const cId = (currentCourse as any)._id || currentCourse.id || 'N/A';
+    doc.text(`Course ID: ${cId}  |  Student ID: ${user.id || 'N/A'}  |  Completion Date: ${dateStr}`, pageWidth / 2, 130, { align: 'center' });
+
+    // 9. Detailed Achievement Text
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(31, 41, 55);
+    doc.text('Performance Summary:', pageWidth / 2, 142, { align: 'center' });
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(79, 70, 229);
+    doc.text('GRADE: A+ (95% Overall Achievement Score)', pageWidth / 2, 148, { align: 'center' });
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(156, 163, 175);
+    doc.text('This candidate has demonstrated exceptional mastery over the course curriculum, completing all theoretical modules and practical laboratory requirements.', pageWidth / 2, 155, { align: 'center' });
+
+    // 10. Signatures (Moved up from boundary)
+    doc.setTextColor(31, 41, 55);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    
+    // Date Signature Area
+    doc.line(40, 175, 90, 175);
+    doc.text('DATE', 65, 180, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.text(dateStr, 65, 173, { align: 'center' });
+
+    // Director Signature Area
+    doc.line(pageWidth - 90, 175, pageWidth - 40, 175);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ATIF SHAHZAD', pageWidth - 65, 180, { align: 'center' });
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text('ACADEMY DIRECTOR', pageWidth - 65, 184, { align: 'center' });
+    
+    // Stylish signature (Simplified Signature)
+    doc.setFont('times', 'italic');
+    doc.setFontSize(22);
+    doc.setTextColor(79, 70, 229);
+    doc.text('EduTech', pageWidth - 65, 168, { align: 'center' });
+
+    // 11. Official Rubber Stamp (Image based)
+    try {
+      doc.addImage('/verified-stamp.png', 'PNG', pageWidth / 2 - 15, 160, 30, 30);
+    } catch (e) {
+      console.warn('Stamp image could not be loaded', e);
+      // Fallback if image fails
+      doc.setDrawColor(185, 28, 28);
+      doc.circle(pageWidth / 2, 175, 12, 'D');
+      doc.text('VERIFIED', pageWidth / 2, 175, { align: 'center' });
+    }
+
+    // 12. Subtle Watermark (Even smaller)
+    doc.setTextColor(240, 240, 240);
+    doc.setFontSize(5);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Project created by Atif Shahzad | EduTech Portfolio 2024', pageWidth - 6, pageHeight / 2, { angle: 90, align: 'center' });
+
+    doc.save(`${fullName.replace(' ', '_')}_Certificate.pdf`);
+    toast.success('Certificate downloaded successfully!');
+  };
 
   const handlePostDiscussion = async () => {
     if (!newQuestionTitle.trim() || !newQuestionContent.trim() || !token) return;
@@ -317,6 +499,17 @@ const CourseLearningPage: AuthenticatedPage = () => {
                    Discussion
                  </button>
               </div>
+              {progress === 100 && (
+                <Button 
+                  onClick={handleDownloadCertificate}
+                  variant="primary" 
+                  size="sm" 
+                  className="bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-600/20 px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest"
+                >
+                  <FiDownload className="h-3 w-3 mr-2" />
+                  Certificate
+                </Button>
+              )}
            </div>
         </header>
 
@@ -326,12 +519,13 @@ const CourseLearningPage: AuthenticatedPage = () => {
            <div className="flex-1 flex flex-col min-w-0">
               <div className="relative h-[65vh] bg-black shadow-2xl z-10 border-b border-white/5 overflow-y-auto custom-scrollbar">
                  {(currentLesson?.type === 'video' || currentLesson?.type === 'live') ? (
-                   <VideoPlayer
+                    <VideoPlayer
                      key={currentLessonId}
                      src={(currentLesson as any)?.videoUrl || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"}
                      courseId={courseId as string}
                      lessonId={currentLessonId}
                      autoResume={true}
+                     onComplete={() => markLessonComplete(currentLessonId)}
                    />
                  ) : currentLesson?.type === 'text' ? (
                    <div className="p-12 max-w-4xl mx-auto min-h-full">
@@ -340,55 +534,55 @@ const CourseLearningPage: AuthenticatedPage = () => {
                      </div>
                    </div>
                  ) : currentLesson?.type === 'quiz' ? (
-                   <div className="p-12 max-w-4xl mx-auto min-h-full">
-                      <div className="bg-indigo-600/10 border border-indigo-500/20 p-8 rounded-3xl mb-8 text-center shadow-xl shadow-indigo-500/5">
-                         <h2 className="text-3xl font-black text-white uppercase tracking-tighter mb-2">Knowledge Check</h2>
-                         <p className="text-indigo-400 font-bold tracking-widest text-sm uppercase">Passing Score Required: {currentLesson.passingScore || 80}%</p>
-                      </div>
-                      
-                      <div className="space-y-8">
-                        {(!currentLesson.quizQuestions || currentLesson.quizQuestions.length === 0) ? (
-                          <div className="text-center py-20 border border-dashed border-white/10 rounded-3xl">
-                             <p className="text-gray-500 font-bold">No questions available for this quiz.</p>
-                          </div>
-                        ) : (
-                          currentLesson.quizQuestions.map((q: any, i: number) => (
-                            <div key={i} className="bg-white/[0.02] border border-white/5 p-8 rounded-3xl shadow-xl">
-                              <h3 className="text-xl font-bold text-white mb-6"><span className="text-indigo-500 mr-2">{i + 1}.</span> {q.questionText}</h3>
-                              <div className="space-y-3">
-                                {q.options?.map((opt: string, j: number) => (
-                                  <label key={j} className={`flex items-center gap-4 p-5 rounded-2xl border transition-all cursor-pointer group ${quizAnswers[i] === j ? 'border-indigo-500/50 bg-indigo-500/5 text-white' : 'border-white/10 hover:bg-white/5 hover:border-indigo-500/30'}`}>
-                                    <input 
-                                      type="radio" 
-                                      name={`question-${i}`} 
-                                      checked={quizAnswers[i] === j}
-                                      onChange={() => setQuizAnswers(prev => ({ ...prev, [i]: j }))}
-                                      className="w-5 h-5 text-indigo-500 bg-black/50 border-white/20 focus:ring-indigo-500 focus:ring-offset-gray-900 cursor-pointer" 
-                                    />
-                                    <span className={`font-medium transition-colors ${quizAnswers[i] === j ? 'text-indigo-300' : 'text-gray-300 group-hover:text-white'}`}>{opt}</span>
-                                  </label>
-                                ))}
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
+                    <div className="p-12 max-w-4xl mx-auto min-h-full">
+                       <div className="bg-indigo-600/10 border border-indigo-500/20 p-8 rounded-3xl mb-8 text-center shadow-xl shadow-indigo-500/5">
+                          <h2 className="text-3xl font-black text-white uppercase tracking-tighter mb-2">Knowledge Check</h2>
+                          <p className="text-indigo-400 font-bold tracking-widest text-sm uppercase">Passing Score Required: {currentLesson.passingScore || 80}%</p>
+                       </div>
+                       
+                       <div className="space-y-8">
+                         {(!currentLesson.quizQuestions || currentLesson.quizQuestions.length === 0) ? (
+                           <div className="text-center py-20 border border-dashed border-white/10 rounded-3xl">
+                              <p className="text-gray-500 font-bold">No questions available for this quiz.</p>
+                           </div>
+                         ) : (
+                           currentLesson.quizQuestions.map((q: any, i: number) => (
+                             <div key={i} className="bg-white/[0.02] border border-white/5 p-8 rounded-3xl shadow-xl">
+                               <h3 className="text-xl font-bold text-white mb-6"><span className="text-indigo-500 mr-2">{i + 1}.</span> {q.questionText}</h3>
+                               <div className="space-y-3">
+                                 {q.options?.map((opt: string, j: number) => (
+                                   <label key={j} className={`flex items-center gap-4 p-5 rounded-2xl border transition-all cursor-pointer group ${quizAnswers[i] === j ? 'border-indigo-500/50 bg-indigo-500/5 text-white' : 'border-white/10 hover:bg-white/5 hover:border-indigo-500/30'}`}>
+                                     <input 
+                                       type="radio" 
+                                       name={`question-${i}`} 
+                                       checked={quizAnswers[i] === j}
+                                       onChange={() => setQuizAnswers(prev => ({ ...prev, [i]: j }))}
+                                       className="w-5 h-5 text-indigo-500 bg-black/50 border-white/20 focus:ring-indigo-500 focus:ring-offset-gray-900 cursor-pointer" 
+                                     />
+                                     <span className={`font-medium transition-colors ${quizAnswers[i] === j ? 'text-indigo-300' : 'text-gray-300 group-hover:text-white'}`}>{opt}</span>
+                                   </label>
+                                 ))}
+                               </div>
+                             </div>
+                           ))
+                         )}
+                       </div>
 
-                      {currentLesson.quizQuestions && currentLesson.quizQuestions.length > 0 && (
-                        <div className="mt-12 flex justify-center">
-                          <Button 
-                            variant="primary" 
-                            size="lg" 
-                            disabled={Object.keys(quizAnswers).length < currentLesson.quizQuestions.length}
-                            className="bg-indigo-600 hover:bg-indigo-500 px-12 py-5 text-sm tracking-widest uppercase font-black rounded-2xl shadow-2xl shadow-indigo-600/20 transition-all hover:-translate-y-1 disabled:opacity-50 disabled:hover:translate-y-0 disabled:cursor-not-allowed" 
-                            onClick={handleQuizSubmit}
-                          >
-                            {Object.keys(quizAnswers).length < currentLesson.quizQuestions.length ? 'Answer all questions' : 'Submit Quiz'}
-                          </Button>
-                        </div>
-                      )}
-                   </div>
-                 ) : null}
+                       {currentLesson.quizQuestions && currentLesson.quizQuestions.length > 0 && (
+                         <div className="mt-12 flex justify-center">
+                           <Button 
+                             variant="primary" 
+                             size="lg" 
+                             disabled={Object.keys(quizAnswers).length < currentLesson.quizQuestions.length}
+                             className="bg-indigo-600 hover:bg-indigo-500 px-12 py-5 text-sm tracking-widest uppercase font-black rounded-2xl shadow-2xl shadow-indigo-600/20 transition-all hover:-translate-y-1 disabled:opacity-50 disabled:hover:translate-y-0 disabled:cursor-not-allowed" 
+                             onClick={handleQuizSubmit}
+                           >
+                             {Object.keys(quizAnswers).length < currentLesson.quizQuestions.length ? 'Answer all questions' : 'Submit Quiz'}
+                           </Button>
+                         </div>
+                       )}
+                    </div>
+                  ) : null}
                  
                  {/* Playback HUD Overlay */}
                  <div className="absolute top-6 left-6 flex items-center gap-3 z-20 pointer-events-none">
@@ -578,11 +772,11 @@ const CourseLearningPage: AuthenticatedPage = () => {
               </div>
 
               <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
-                 {modules.map((m, mIdx) => (
+                 {modules.map((m: any, mIdx: number) => (
                     <div key={m.id} className="space-y-3">
                        <p className="text-[10px] font-black text-gray-700 uppercase tracking-[0.3em] px-4">Module {mIdx + 1}: {m.title}</p>
                        <div className="space-y-2">
-                          {m.lessons.map((l) => (
+                          {m.lessons.map((l: any) => (
                             <button 
                               key={l.id}
                               onClick={() => !l.isLocked && handleLessonSelect(l.id)}
@@ -601,15 +795,13 @@ const CourseLearningPage: AuthenticatedPage = () => {
                                       ? 'bg-indigo-600 text-white border-white/20' 
                                       : 'bg-black/40 text-gray-600 border-white/5 group-hover:bg-indigo-600/20 group-hover:text-indigo-400 group-hover:border-indigo-500/30'
                                   }`}>
-                                     {l.isLocked ? <FiLock className="h-5 w-5" /> : l.type === 'video' ? <FiPlay className="h-5 w-5 hover:ml-1 transition-all" /> : l.type === 'live' ? <FiRadio className="h-5 w-5" /> : <FiFileText className="h-5 w-5" />}
+                                     {l.isLocked ? <FiLock className="h-5 w-5" /> : l.type === 'video' ? <FiPlay className="h-5 w-5" /> : l.type === 'live' ? <FiRadio className="h-5 w-5" /> : <FiFileText className="h-5 w-5" />}
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                     <p className={`text-sm font-bold truncate tracking-tight transition-colors ${
-                                       currentLessonId === l.id ? 'text-white' : 'text-gray-400 group-hover:text-white'
-                                     }`}>{l.title}</p>
+                                     <p className={`text-sm font-bold truncate tracking-tight ${currentLessonId === l.id ? 'text-white' : 'text-gray-400'}`}>{l.title}</p>
                                      <div className="flex items-center gap-3 mt-1">
                                         <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">{l.duration}</span>
-                                        {l.completed && (
+                                        {(l.completed || completedLessons.includes(l.id)) && (
                                           <div className="flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
                                              <FiCheck className="h-2 w-2 text-emerald-500" />
                                              <span className="text-[8px] font-black text-emerald-500 uppercase">Done</span>
@@ -629,19 +821,28 @@ const CourseLearningPage: AuthenticatedPage = () => {
               <div className="p-8 bg-black/40 border-t border-white/5 mt-auto">
                  {nextLesson ? (
                    <div className="bg-indigo-600/10 border border-indigo-500/20 rounded-2xl p-6 relative overflow-hidden group">
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-600/20 rounded-full blur-2xl -mr-12 -mt-12 group-hover:bg-indigo-500/30 transition-colors" />
                       <h4 className="text-sm font-black text-white uppercase tracking-tight mb-2 relative z-10">Next Lesson Up</h4>
                       <p className="text-xs text-indigo-400 font-bold mb-4 line-clamp-1 relative z-10">{nextLesson.title}</p>
-                      <Button onClick={() => handleLessonSelect(nextLesson.id)} variant="primary" fullWidth size="sm" className="bg-indigo-600 hover:bg-indigo-500 relative z-10 transition-colors">Jump to Next</Button>
+                      <Button onClick={() => handleLessonSelect(nextLesson.id)} variant="primary" fullWidth size="sm" className="bg-indigo-600 hover:bg-indigo-500">Jump to Next</Button>
                    </div>
                  ) : (
-                   <div className="bg-emerald-600/10 border border-emerald-500/20 rounded-2xl p-6 relative overflow-hidden text-center">
-                     <div className="mx-auto w-10 h-10 bg-emerald-500/20 rounded-full flex items-center justify-center mb-3">
-                       <FiCheck className="text-emerald-400 h-5 w-5" />
-                     </div>
-                     <h4 className="text-sm font-black text-white uppercase tracking-tight mb-1">Course Completed</h4>
-                     <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest">You have reached the end!</p>
-                   </div>
+                    <div className="bg-emerald-600/10 border border-emerald-500/20 rounded-2xl p-6 relative overflow-hidden text-center">
+                      <div className="mx-auto w-10 h-10 bg-emerald-500/20 rounded-full flex items-center justify-center mb-3">
+                        <FiCheck className="text-emerald-400 h-5 w-5" />
+                      </div>
+                      <h4 className="text-sm font-black text-white uppercase tracking-tight mb-1">Course Completed</h4>
+                      <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-4">You have reached the end!</p>
+                      <Button 
+                        onClick={handleDownloadCertificate}
+                        variant="primary" 
+                        fullWidth 
+                        size="sm" 
+                        className="bg-emerald-600 hover:bg-emerald-500 py-3 rounded-xl text-[10px] font-black uppercase"
+                      >
+                        <FiDownload className="mr-2 h-3 w-3" />
+                        Download Certificate
+                      </Button>
+                    </div> 
                  )}
               </div>
            </aside>

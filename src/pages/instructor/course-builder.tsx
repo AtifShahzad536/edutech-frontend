@@ -14,6 +14,7 @@ import { fetchCourseById, updateCourse } from '@/store/slices/courseSlice';
 import { useEffect } from 'react';
 import apiClient from '@/config/apiClient';
 import axios from 'axios';
+import { AuthenticatedPage } from '@/types';
 
 // Types
 interface Lesson {

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import Pusher from 'pusher-js';
 import apiClient from '@/config/apiClient';
+import API_URL from '@/config/api';
 
 const PUSHER_KEY = process.env.NEXT_PUBLIC_PUSHER_KEY || '';
 const PUSHER_CLUSTER = process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'mt1';

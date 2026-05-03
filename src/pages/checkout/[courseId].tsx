@@ -15,6 +15,9 @@ import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import clsx from 'clsx';
 import apiClient from '@/config/apiClient';
+import { AuthenticatedPage } from '@/types';
+import { useAppSelector, useAppDispatch } from '@/hooks/useRedux';
+import { refreshUser } from '@/store/slices/authSlice';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', {

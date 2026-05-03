@@ -33,11 +33,10 @@ const BrowseCoursesPage: AuthenticatedPage = () => {
 
   const availableCourses = useMemo(() => {
     return fetchedCourses.map(c => {
-      // API populates instructor data under `instructorId` (the actual DB field)
-      // The virtual `instructor` field may also be present in some responses
-      const instructorObj = c.instructorId || c.instructor;
-      const instructorName = instructorObj?.firstName
-        ? `${instructorObj.firstName} ${instructorObj.lastName}`.trim()
+      // Use the instructor object if available, otherwise fallback to instructorId (if it's an object)
+      const instructorObj = typeof c.instructor === 'object' ? c.instructor : (typeof c.instructorId === 'object' ? c.instructorId : null);
+      const instructorName = (instructorObj as any)?.firstName
+        ? `${(instructorObj as any).firstName} ${(instructorObj as any).lastName}`.trim()
         : 'Expert Instructor';
 
       return {
