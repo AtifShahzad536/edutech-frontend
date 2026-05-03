@@ -109,6 +109,7 @@ const staticStats = [
 ];
 
 import API_URL from '@/config/api';
+import apiClient from '@/config/apiClient';
 
 /* ─── Sub-components ────────────────────────────────────────── */
 
@@ -133,31 +134,27 @@ const HomePage: React.FC = () => {
   useEffect(() => {
     const fetchHomeData = async () => {
       try {
-        const [statsRes, coursesRes] = await Promise.all([
-          fetch(`${API_URL}/home/stats`),
-          fetch(`${API_URL}/home/featured-courses`)
+        const [statsRes, coursesRes]: any = await Promise.all([
+          apiClient.get('/home/stats'),
+          apiClient.get('/home/featured-courses')
         ]);
 
-        if (statsRes.ok) {
-          const statsData = await statsRes.json();
-          if (statsData.success) {
-            setPageStats([
-              { value: statsData.stats.totalStudents > 1000 ? `${(statsData.stats.totalStudents / 1000).toFixed(0)}K+` : `${statsData.stats.totalStudents}+`, label: 'Active Students' },
-              { value: `${statsData.stats.totalCourses}+`, label: 'Courses Available' },
-              { value: `${statsData.stats.totalInstructors}+`, label: 'Expert Instructors' },
-              { value: '4.9', label: 'Average Rating' },
-            ]);
-          }
+        if (statsRes.success) {
+          const { stats } = statsRes.data;
+          setPageStats([
+            { value: stats.totalStudents > 1000 ? `${(stats.totalStudents / 1000).toFixed(0)}K+` : `${stats.totalStudents}+`, label: 'Active Students' },
+            { value: `${stats.totalCourses}+`, label: 'Courses Available' },
+            { value: `${stats.totalInstructors}+`, label: 'Expert Instructors' },
+            { value: '4.9', label: 'Average Rating' },
+          ]);
         }
 
-        if (coursesRes.ok) {
-          const coursesData = await coursesRes.json();
-          if (coursesData.success && coursesData.data.length > 0) {
-            setRealCourses(coursesData.data);
-          }
+        if (coursesRes.success && coursesRes.data.length > 0) {
+          setRealCourses(coursesRes.data);
         }
       } catch (err) {
-        console.warn('Home API not available, using static data');
+        console.error('Home API Fetch Error:', err);
+        console.warn('Home API not available at', API_URL, 'using static data');
       } finally {
         setLoadingCourses(false);
       }
@@ -170,12 +167,13 @@ const HomePage: React.FC = () => {
     ? realCourses.map((c: any) => ({
       id: c.id || c._id,
       title: c.title,
+      description: c.description,
       instructor: c.instructor,
       rating: c.rating,
       studentsCount: (c.studentsCount || 0).toLocaleString(),
       duration: `${c.duration || 0} hours`,
       level: c.level ? c.level.charAt(0).toUpperCase() + c.level.slice(1) : 'All Levels',
-      price: `$${(c.price || 0).toFixed(2)}`,
+      price: c.price ? `$${(c.price || 0).toFixed(2)}` : 'Free',
       originalPrice: c.originalPrice ? `$${c.originalPrice.toFixed(2)}` : '',
       category: c.category,
       thumbnail: c.thumbnail,
@@ -448,7 +446,7 @@ const HomePage: React.FC = () => {
                   key={course.id}
                   {...course}
                   isEnrolled={isEnrolled(course.id)}
-                  href={`/courses`}
+                  href={`/student/courses/${course.id}`}
                   actionLabel={isEnrolled(course.id) ? "Continue" : "Enroll Now →"}
                   actionIcon={isEnrolled(course.id) ? <FiCheckCircle className="h-3.5 w-3.5" /> : null}
                   onAction={() => handleEnroll(course.id)}
